@@ -1,0 +1,76 @@
+# Runs ON the Hetzner server (lives in /opt/sollicitations).
+# Image tags + Postgres secrets are supplied via the .env file (seeded by the Ansible
+# bootstrap; the WEB_IMAGE/API_IMAGE lines are then updated per-deploy by CI).
+#
+# Frontend + backend join the shared `traefik-web` network (owned by the euro-millions
+# / Traefik stack) for public TLS routing. Postgres stays on a PRIVATE network and is
+# never exposed to Traefik or the internet.
+services:
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/typhion/sollicitations-web:latest}
+    restart: unless-stopped
+    pull_policy: always
+    expose:
+      - "80"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sol-web.rule=Host(`admin.typhion.com`)
+      - traefik.http.routers.sol-web.entrypoints=websecure
+      - traefik.http.routers.sol-web.tls.certresolver=le
+      - traefik.http.services.sol-web.loadbalancer.server.port=80
+    networks:
+      - web
+
+  api:
+    image: ${API_IMAGE:-ghcr.io/typhion/sollicitations-api:latest}
+    restart: unless-stopped
+    pull_policy: always
+    expose:
+      - "8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      # Connection string targets the `db` SERVICE NAME, resolved on the private
+      # network. The password comes from .env — never hardcode it.
+      ConnectionStrings__Default: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sol-api.rule=Host(`api.admin.typhion.com`)
+      - traefik.http.routers.sol-api.entrypoints=websecure
+      - traefik.http.routers.sol-api.tls.certresolver=le
+      - traefik.http.services.sol-api.loadbalancer.server.port=8080
+    networks:
+      - web        # receive traffic from Traefik
+      - internal   # reach the database
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal   # ONLY the private network — no Traefik label, no host port
+
+networks:
+  web:
+    # Shared Traefik network owned by the euro-millions stack.
+    name: traefik-web
+    external: true
+  internal:
+    # Private; created and owned by THIS project. Only api + db attach.
+    driver: bridge
+
+volumes:
+  pgdata:
