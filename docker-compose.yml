@@ -1,0 +1,31 @@
+# Local development only. Brings up the Postgres the backend talks to.
+# NOT the server stack — that lives in deploy/docker-compose.yml and runs on Hetzner.
+#
+# Usage:
+#   docker compose up -d        # start Postgres in the background
+#   docker compose down         # stop it (data is kept in the named volume)
+#   docker compose down -v      # stop it AND wipe the data volume
+#
+# Connection string for the API (matches deploy/, but Host=localhost):
+#   Host=localhost;Port=5432;Database=solicitations;Username=solicitations;Password=devpassword
+services:
+  db:
+    image: postgres:17-alpine
+    # Local dev defaults — these are not secrets and only ever run on your machine.
+    environment:
+      POSTGRES_DB: solicitations
+      POSTGRES_USER: solicitations
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      # Exposed on localhost so the API (and tools like psql / DataGrip) can reach it.
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solicitations -d solicitations"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
