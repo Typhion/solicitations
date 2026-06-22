@@ -1,6 +1,57 @@
 @WebApi_HostAddress = http://localhost:5182
 
-GET {{WebApi_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health check
+GET {{WebApi_HostAddress}}/
+Accept: text/plain
 
-###
+### Login as admin (success) — captures the JWT into {{auth_token}}
+# @name login
+POST {{WebApi_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+> {%
+    client.test("login succeeds", function () {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+    client.global.set("auth_token", response.body.token);
+%}
+
+### Login with wrong password (expect 401)
+POST {{WebApi_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "wrong"
+}
+
+> {%
+    client.test("wrong password is rejected", function () {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
+
+### Get current user with the captured token (expect 200 -> "admin")
+# Run the "Login as admin" request first so {{auth_token}} is set.
+GET {{WebApi_HostAddress}}/api/me
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("authenticated request succeeds", function () {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+%}
+
+### Get current user without a token (expect 401)
+GET {{WebApi_HostAddress}}/api/me
+
+> {%
+    client.test("missing token is rejected", function () {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}

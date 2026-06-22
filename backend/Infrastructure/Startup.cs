@@ -1,4 +1,6 @@
-﻿using Infrastructure.Persistence;
+﻿using Application;
+using Infrastructure.Persistence;
+using Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,8 +10,17 @@ public static class Startup
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
+        services.AddApplication();
         services.AddPersistence(config);
+        services.AddSecurity(config);
         
         return services;
+    }
+
+    public static async Task InitialiseDatabaseAsync(this IServiceProvider services, CancellationToken ct = default)
+    {
+        using var scope = services.CreateScope();
+        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync(ct);
     }
 }
