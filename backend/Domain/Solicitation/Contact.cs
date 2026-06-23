@@ -1,10 +1,3 @@
-﻿using Domain.Kernel;
+﻿namespace Domain.Solicitation;
 
-namespace Domain.Solicitation;
-
-public class Contact : Entity
-{
-    public string Name { get; private set; }
-    public string PhoneNumber { get; private set; }
-    public string Email { get; private set; }
-}
+public sealed record Contact(string Name, string PhoneNumber, string Email);

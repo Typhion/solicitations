@@ -1,4 +1,4 @@
-using Domain.Kernel;
+using Domain.Core;
 
 namespace Domain.User;
 

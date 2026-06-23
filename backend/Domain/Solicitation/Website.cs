@@ -1,9 +1,3 @@
-﻿using Domain.Kernel;
+﻿namespace Domain.Solicitation;
 
-namespace Domain.Solicitation;
-
-public class Website : Entity
-{
-    public string Name { get; private set; }
-    public string Link { get; private set; }
-}
+public sealed record Website(string Name, string Link);

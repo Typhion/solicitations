@@ -1,4 +1,4 @@
-namespace Domain.Kernel;
+namespace Domain.Core;
 
 public class Entity
 {

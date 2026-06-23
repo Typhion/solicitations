@@ -14,8 +14,12 @@ public static class Startup
 {
     internal static IServiceCollection AddSecurity(this IServiceCollection services, IConfiguration config)
     {
-        services.Configure<JwtSettings>(config.GetSection(JwtSettings.SectionName));
         var jwt = config.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
+        services.AddOptions<JwtSettings>()
+            .Bind(config.GetSection(JwtSettings.SectionName))
+            .Validate(s => !string.IsNullOrWhiteSpace(s.Key) && s.Key.Length >= 32,
+                "Jwt:Key is missing or too short.")
+            .ValidateOnStart();
 
         services
             .AddIdentityCore<AppUser>(options =>
@@ -45,11 +49,15 @@ public static class Startup
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwt.Issuer,
                     ValidAudience = jwt.Audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+                    ClockSkew = TimeSpan.FromSeconds(30)
                 };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorizationBuilder()
+            .AddPolicy("Admin", policy => policy.RequireRole("Admin"))
+            .AddPolicy("CanManageSolicitations", policy =>
+                policy.RequireRole("Admin", "Manager"));
         return services;
     }
 }
