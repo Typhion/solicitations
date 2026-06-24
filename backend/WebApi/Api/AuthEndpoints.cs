@@ -12,6 +12,7 @@ public static class AuthEndpoints
 
         group.MapPost("/login", LoginAsync)
             .AddEndpointFilter<ValidationFilter<LoginRequest>>()
+            .RequireRateLimiting("login")
             .AllowAnonymous();
 
         return app;

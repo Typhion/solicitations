@@ -13,9 +13,17 @@ internal sealed class AuthenticationService(
     public async Task<LoginResult> LoginAsync(string username, string password, CancellationToken ct)
     {
         var user = await userManager.FindByNameAsync(username);
-        if (user is null || !await userManager.CheckPasswordAsync(user, password))
-            return LoginResult.Fail("Invalid username or password.");
+        if (user is null) return LoginResult.Fail("Invalid username or password.");
 
+        if (await userManager.IsLockedOutAsync(user)) return LoginResult.Fail("Account locked. Try again later.");
+
+        if (!await userManager.CheckPasswordAsync(user, password))
+        {
+            await userManager.AccessFailedAsync(user);
+            return LoginResult.Fail("Invalid username or password.");
+        }
+
+        await userManager.ResetAccessFailedCountAsync(user);
         var roles = await userManager.GetRolesAsync(user);
         var (token, expiresAt) = tokenService.CreateToken(user, roles);
         return LoginResult.Success(token, expiresAt);
