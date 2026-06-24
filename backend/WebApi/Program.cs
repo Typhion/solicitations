@@ -2,6 +2,7 @@ using Application;
 using Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 using WebApi.Api;
+using WebApi.Cors;
 using WebApi.Errors;
 using WebApi.Security;
 using WebApi.Validation;
@@ -26,12 +27,14 @@ builder.Services.AddValidators();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddSecurity();
+builder.Services.AddCorsPolicies(builder.Configuration);
 
 var app = builder.Build();
 
 await app.Services.InitialiseDatabaseAsync();
 
 app.UseExceptionHandler();
+app.UseCors("spa");
 app.UseAuthentication();
 app.UseAuthorization();
 
