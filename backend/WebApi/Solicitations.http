@@ -1,0 +1,226 @@
+@WebApi_HostAddress = http://localhost:5182
+
+###############################################################################
+# Solicitations CRUD — run "Login" first to populate {{auth_token}}, then run
+# Create (captures {{solicitation_id}}), and the rest top-to-bottom.
+#
+# SolicitationStatus enum (sent/received as a number by default):
+#   Draft=1 Applied=2 Acknowledged=3 Screening=4 Interviewing=5
+#   OfferReceived=6 Accepted=7 Rejected=8 Withdrawn=9 Unanswered=10
+###############################################################################
+
+### Login as admin — captures the JWT into {{auth_token}}
+# @name login
+POST {{WebApi_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+> {%
+    client.test("login succeeds", function () {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+    client.global.set("auth_token", response.body.token);
+%}
+
+### Create a solicitation (expect 201) — captures {{solicitation_id}}
+# @name create
+POST {{WebApi_HostAddress}}/api/solicitations
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "jobName": "Senior Backend Developer",
+  "location": {
+    "country": "BE",
+    "city": "Ghent",
+    "zipCode": "9000",
+    "street": "Veldstraat",
+    "streetNumber": "12"
+  },
+  "website": {
+    "name": "LinkedIn",
+    "link": "https://www.linkedin.com/jobs/123"
+  },
+  "contact": {
+    "name": "Jane Doe",
+    "phoneNumber": "+32470123456",
+    "email": "jane.doe@example.com"
+  }
+}
+
+> {%
+    client.test("create returns 201", function () {
+        client.assert(response.status === 201, "Expected 201 but got " + response.status);
+    });
+    client.test("new solicitation starts as Draft (1)", function () {
+        client.assert(response.body.status === 1, "Expected status 1 (Draft) but got " + response.body.status);
+    });
+    client.global.set("solicitation_id", response.body.id);
+%}
+
+### List all solicitations (expect 200, array contains the created one)
+GET {{WebApi_HostAddress}}/api/solicitations
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("list returns 200", function () {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+    client.test("list is an array", function () {
+        client.assert(Array.isArray(response.body), "Expected an array");
+    });
+%}
+
+### Get the created solicitation by id (expect 200)
+GET {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("get by id returns 200", function () {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+    client.test("id matches", function () {
+        client.assert(response.body.id === client.global.get("solicitation_id"), "Id mismatch");
+    });
+%}
+
+### Update the solicitation (expect 204) — change title + move status to Applied (2)
+PUT {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "jobName": "Senior Backend Developer (updated)",
+  "location": {
+    "country": "BE",
+    "city": "Ghent",
+    "zipCode": "9000",
+    "street": "Veldstraat",
+    "streetNumber": "12"
+  },
+  "website": {
+    "name": "LinkedIn",
+    "link": "https://www.linkedin.com/jobs/123"
+  },
+  "contact": {
+    "name": "Jane Doe",
+    "phoneNumber": "+32470123456",
+    "email": "jane.doe@example.com"
+  },
+  "status": 2
+}
+
+> {%
+    client.test("update returns 204", function () {
+        client.assert(response.status === 204, "Expected 204 but got " + response.status);
+    });
+%}
+
+### Confirm the update persisted (expect 200, status now Applied=2)
+GET {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("title updated", function () {
+        client.assert(response.body.jobName === "Senior Backend Developer (updated)", "Title not updated");
+    });
+    client.test("status is now Applied (2)", function () {
+        client.assert(response.body.status === 2, "Expected status 2 but got " + response.body.status);
+    });
+%}
+
+### Delete the solicitation (expect 204)
+DELETE {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("delete returns 204", function () {
+        client.assert(response.status === 204, "Expected 204 but got " + response.status);
+    });
+%}
+
+### Get the deleted solicitation (expect 404 -> ProblemDetails from NotFoundException)
+GET {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("deleted resource returns 404", function () {
+        client.assert(response.status === 404, "Expected 404 but got " + response.status);
+    });
+%}
+
+###############################################################################
+# Negative cases — auth + validation
+###############################################################################
+
+### Create without a token (expect 401 from the CanManageSolicitations policy)
+POST {{WebApi_HostAddress}}/api/solicitations
+Content-Type: application/json
+
+{
+  "jobName": "No Token Job",
+  "location": { "country": "BE", "city": "Ghent", "zipCode": "9000", "street": "Veldstraat", "streetNumber": "12" },
+  "website": { "name": "LinkedIn", "link": "https://example.com" },
+  "contact": { "name": "Jane", "phoneNumber": "+32470", "email": "jane@example.com" }
+}
+
+> {%
+    client.test("missing token is rejected", function () {
+        client.assert(response.status === 401, "Expected 401 but got " + response.status);
+    });
+%}
+
+### Create with an invalid body (expect 400 -> ValidationProblem from the filter)
+# Empty jobName, empty country, and a malformed email all trip the validators.
+POST {{WebApi_HostAddress}}/api/solicitations
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "jobName": "",
+  "location": { "country": "", "city": "Ghent", "zipCode": "9000", "street": "Veldstraat", "streetNumber": "12" },
+  "website": { "name": "LinkedIn", "link": "https://example.com" },
+  "contact": { "name": "Jane", "phoneNumber": "+32470", "email": "not-an-email" }
+}
+
+> {%
+    client.test("invalid body returns 400", function () {
+        client.assert(response.status === 400, "Expected 400 but got " + response.status);
+    });
+    client.test("response carries validation errors", function () {
+        client.assert(response.body.errors !== undefined, "Expected an 'errors' object in ProblemDetails");
+    });
+%}
+
+### Update with an out-of-range status (expect 400 from IsInEnum())
+PUT {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "jobName": "Bad Status Job",
+  "location": { "country": "BE", "city": "Ghent", "zipCode": "9000", "street": "Veldstraat", "streetNumber": "12" },
+  "website": { "name": "LinkedIn", "link": "https://example.com" },
+  "contact": { "name": "Jane", "phoneNumber": "+32470", "email": "jane@example.com" },
+  "status": 99
+}
+
+> {%
+    client.test("out-of-range status returns 400", function () {
+        client.assert(response.status === 400, "Expected 400 but got " + response.status);
+    });
+%}
+
+### Get a random (non-existent) id (expect 404)
+GET {{WebApi_HostAddress}}/api/solicitations/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("unknown id returns 404", function () {
+        client.assert(response.status === 404, "Expected 404 but got " + response.status);
+    });
+%}

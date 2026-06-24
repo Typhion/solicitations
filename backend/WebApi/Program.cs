@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Application;
 using Infrastructure;
 using WebApi.Api;
@@ -22,9 +21,7 @@ app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", () => "ok");
-app.MapAuthEndpoints();
-app.MapGet("/api/me", (ClaimsPrincipal user) => user.Identity!.Name).RequireAuthorization();
+app.MapEndpoints();
 
 var admin = app.MapGroup("/api/admin").RequireAuthorization("Admin");
 
