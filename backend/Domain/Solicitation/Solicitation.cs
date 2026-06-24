@@ -6,10 +6,12 @@ public class Solicitation : Entity
 {
     private Solicitation() { }
     
-    public Solicitation(string jobName, Location location, Website website, Contact contact)
+    public Solicitation(Guid ownerId, string jobName, Location location, Website website, Contact contact)
     {
+        if (ownerId == Guid.Empty) throw new ArgumentException("Owner is required.", nameof(ownerId));
+        OwnerId = ownerId;
         UpdateDetails(jobName, location, website, contact);
-        Status = SolicitationStatus.Draft;   // invariant: new solicitations start as Draft
+        Status = SolicitationStatus.Draft;
     }
     
     public string JobName { get; private set; } = null!;
@@ -18,6 +20,7 @@ public class Solicitation : Entity
     public Contact Contact { get; private set; } = null!;
     public SolicitationStatus Status { get; private set; }
     // public ICollection<Meeting.Meeting> Meetings { get; private set; }
+    public Guid OwnerId { get; private set; }
     
     public void UpdateDetails(string jobName, Location location, Website website, Contact contact)
     {

@@ -1,3 +1,4 @@
+using Application.Common;
 using Application.Common.Exceptions;
 using Application.Solicitations;
 using Domain.Solicitation;
@@ -9,20 +10,27 @@ namespace Application.Tests.Unit.Solicitations;
 public class SolicitationServiceTests
 {
     private readonly ISolicitationRepository _repository = Substitute.For<ISolicitationRepository>();
+    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    private readonly Guid _ownerId = Guid.NewGuid();
     private readonly SolicitationService _sut;
 
-    public SolicitationServiceTests() => _sut = new SolicitationService(_repository);
+    public SolicitationServiceTests()
+    {
+        _currentUser.Id.Returns(_ownerId);
+        _sut = new SolicitationService(_repository, _currentUser);
+    }
 
     // ---------- Create ----------
 
     [Fact]
-    public async Task CreateAsync_AddsEntity_Saves_AndReturnsMappedResponse()
+    public async Task CreateAsync_AddsEntity_Saves_AndStampsCurrentUserAsOwner()
     {
         var request = NewCreateRequest("Backend Developer");
 
         var response = await _sut.CreateAsync(request, CancellationToken.None);
 
-        _repository.Received(1).Add(Arg.Any<Solicitation>());
+        // ownership: the new aggregate is stamped with the current user's id
+        _repository.Received(1).Add(Arg.Is<Solicitation>(s => s.OwnerId == _ownerId));
         await _repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
 
         response.JobName.Should().Be("Backend Developer");
@@ -42,21 +50,24 @@ public class SolicitationServiceTests
     // ---------- Get ----------
 
     [Fact]
-    public async Task GetAsync_WhenFound_ReturnsMappedResponse()
+    public async Task GetAsync_WhenFound_ReturnsMappedResponse_ScopedToCurrentUser()
     {
         var solicitation = NewSolicitation("Platform Engineer");
-        _repository.GetByIdAsync(solicitation.Id, Arg.Any<CancellationToken>()).Returns(solicitation);
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
 
         var response = await _sut.GetAsync(solicitation.Id, CancellationToken.None);
 
         response.Id.Should().Be(solicitation.Id);
         response.JobName.Should().Be("Platform Engineer");
+        // the query is scoped to the current user's id
+        await _repository.Received(1).GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task GetAsync_WhenMissing_ThrowsNotFound()
+    public async Task GetAsync_WhenMissingOrNotOwned_ThrowsNotFound()
     {
-        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Solicitation?)null);
+        // repo returns null both for non-existent ids and rows owned by someone else
+        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Solicitation?)null);
 
         var act = () => _sut.GetAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -66,15 +77,16 @@ public class SolicitationServiceTests
     // ---------- List ----------
 
     [Fact]
-    public async Task ListAsync_ReturnsAllMappedResponses()
+    public async Task ListAsync_ReturnsCurrentUsersMappedResponses()
     {
         var items = new List<Solicitation> { NewSolicitation("One"), NewSolicitation("Two") };
-        _repository.ListAsync(Arg.Any<CancellationToken>()).Returns(items);
+        _repository.ListAsync(_ownerId, Arg.Any<CancellationToken>()).Returns(items);
 
         var responses = await _sut.ListAsync(CancellationToken.None);
 
         responses.Should().HaveCount(2);
         responses.Select(r => r.JobName).Should().Equal("One", "Two");
+        await _repository.Received(1).ListAsync(_ownerId, Arg.Any<CancellationToken>());
     }
 
     // ---------- Update ----------
@@ -83,7 +95,7 @@ public class SolicitationServiceTests
     public async Task UpdateAsync_WhenFound_MutatesTrackedEntity_AndSaves()
     {
         var solicitation = NewSolicitation("Old Title");
-        _repository.GetByIdAsync(solicitation.Id, Arg.Any<CancellationToken>()).Returns(solicitation);
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
 
         var request = new UpdateSolicitationRequest(
             "New Title",
@@ -102,9 +114,9 @@ public class SolicitationServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenMissing_ThrowsNotFound_AndDoesNotSave()
+    public async Task UpdateAsync_WhenMissingOrNotOwned_ThrowsNotFound_AndDoesNotSave()
     {
-        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Solicitation?)null);
+        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Solicitation?)null);
 
         var act = () => _sut.UpdateAsync(Guid.NewGuid(), NewUpdateRequest(), CancellationToken.None);
 
@@ -118,7 +130,7 @@ public class SolicitationServiceTests
     public async Task DeleteAsync_WhenFound_RemovesEntity_AndSaves()
     {
         var solicitation = NewSolicitation();
-        _repository.GetByIdAsync(solicitation.Id, Arg.Any<CancellationToken>()).Returns(solicitation);
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
 
         await _sut.DeleteAsync(solicitation.Id, CancellationToken.None);
 
@@ -127,9 +139,9 @@ public class SolicitationServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenMissing_ThrowsNotFound_AndDoesNotRemoveOrSave()
+    public async Task DeleteAsync_WhenMissingOrNotOwned_ThrowsNotFound_AndDoesNotRemoveOrSave()
     {
-        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Solicitation?)null);
+        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Solicitation?)null);
 
         var act = () => _sut.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -153,7 +165,8 @@ public class SolicitationServiceTests
         new ContactDto("John", "0123", "john@example.com"),
         SolicitationStatus.Applied);
 
-    private static Solicitation NewSolicitation(string jobName = "Developer") => new(
+    private Solicitation NewSolicitation(string jobName = "Developer") => new(
+        _ownerId,
         jobName,
         new Location("BE", "Brussels", "1000", "Main", "10"),
         new Website("Indeed", "https://indeed.com"),

@@ -3,6 +3,7 @@ using Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 using WebApi.Api;
 using WebApi.Errors;
+using WebApi.Security;
 using WebApi.Validation;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddValidators();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+builder.Services.AddSecurity();
 
 var app = builder.Build();
 

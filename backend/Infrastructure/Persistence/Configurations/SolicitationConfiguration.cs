@@ -9,6 +9,9 @@ internal sealed class SolicitationConfiguration : IEntityTypeConfiguration<Solic
     public void Configure(EntityTypeBuilder<Solicitation> builder)
     {
         builder.HasKey(s => s.Id);
+        
+        builder.Property(s => s.OwnerId).IsRequired();
+        builder.HasIndex(s => s.OwnerId);
 
         builder.Property(s => s.JobName).IsRequired().HasMaxLength(200);
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(50);

@@ -6,11 +6,11 @@ namespace Infrastructure.Persistence;
 
 internal sealed class SolicitationRepository(SolicitationsDbContext context) : ISolicitationRepository
 {
-    public async Task<IReadOnlyList<Solicitation>> ListAsync(CancellationToken ct)
-        => await context.Solicitations.AsNoTracking().ToListAsync(ct);
+    public async Task<IReadOnlyList<Solicitation>> ListAsync(Guid ownerId, CancellationToken ct)
+        => await context.Solicitations.AsNoTracking().Where(s => s.OwnerId == ownerId).ToListAsync(ct);
 
-    public Task<Solicitation?> GetByIdAsync(Guid id, CancellationToken ct)
-        => context.Solicitations.FirstOrDefaultAsync(s => s.Id == id, ct);
+    public Task<Solicitation?> GetByIdAsync(Guid id, Guid ownerId, CancellationToken ct)
+        => context.Solicitations.FirstOrDefaultAsync(s => s.Id == id && s.OwnerId == ownerId, ct);
 
     public void Add(Solicitation solicitation) => context.Solicitations.Add(solicitation);
 
