@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Application.Invites;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Application.Solicitations;
@@ -10,9 +11,11 @@ public static class Startup
     internal static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration config)
     {
         services.AddDbContext<SolicitationsDbContext>(options => options.UseNpgsql(config.GetConnectionString("Default")));
+        services.AddScoped<IDataSeed, Seeds.RolesSeed>();
         services.AddScoped<IDataSeed, Seeds.AdminSeed>();
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<ISolicitationRepository, SolicitationRepository>();
+        services.AddScoped<IInviteRepository, InviteRepository>();
 
         return services;
     }

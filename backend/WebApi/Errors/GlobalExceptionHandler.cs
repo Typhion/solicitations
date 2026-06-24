@@ -1,4 +1,5 @@
 using Application.Common.Exceptions;
+using Domain.Core;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace WebApi.Errors;
@@ -15,7 +16,7 @@ public sealed class GlobalExceptionHandler(
         context.Response.StatusCode = exception switch
         {
             NotFoundException => StatusCodes.Status404NotFound,
-            // DomainRuleException => StatusCodes.Status409Conflict,
+            DomainException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };
 

@@ -1,5 +1,7 @@
 using System.Text;
 using Application.Auth;
+using Application.Common;
+using Application.Invites;
 using Infrastructure.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -59,8 +61,11 @@ public static class Startup
 
         services.AddAuthorizationBuilder()
             .AddPolicy("Admin", policy => policy.RequireRole("Admin"))
-            .AddPolicy("CanManageSolicitations", policy =>
-                policy.RequireRole("Admin", "Manager"));
+            .AddPolicy("CanManageSolicitations", policy => policy.RequireAuthenticatedUser());
+        
+        services.AddScoped<IInviteTokenService, InviteTokenService>();
+        services.AddScoped<IUserRegistrar, UserRegistrar>();
+        
         return services;
     }
 }

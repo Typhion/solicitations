@@ -1,4 +1,5 @@
-﻿using Domain.Solicitation;
+﻿using Domain.Invites;
+using Domain.Solicitation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,7 @@ public class SolicitationsDbContext : IdentityDbContext<AppUser, IdentityRole<Gu
     }
     
     public DbSet<Solicitation> Solicitations => Set<Solicitation>();
+    public DbSet<Invite> Invites => Set<Invite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

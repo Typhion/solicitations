@@ -1,3 +1,5 @@
+using Application.Auth;
+using Application.Invites;
 using Application.Solicitations;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,6 +10,8 @@ public static class Startup
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<SolicitationService>();
+        services.AddScoped<InviteService>();
+        services.AddScoped<RegistrationService>();
         
         return services;
     }
