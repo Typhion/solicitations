@@ -14,7 +14,7 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddFixedWindowLimiter("login", o =>
     {
-        o.PermitLimit = 5;
+        o.PermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 5);
         o.Window = TimeSpan.FromMinutes(1);
         o.QueueLimit = 0;
     });
@@ -45,3 +45,6 @@ app.MapEndpoints();
 var admin = app.MapGroup("/api/admin").RequireAuthorization("Admin");
 
 app.Run();
+
+// Exposed so the integration test project can use WebApplicationFactory<Program>.
+public partial class Program;

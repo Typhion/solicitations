@@ -4,6 +4,8 @@ namespace WebApi.Api;
 
 public sealed record LoginRequest(string Username, string Password);
 
+public sealed record RefreshRequest(string RefreshToken);
+
 public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
@@ -20,6 +22,15 @@ public static class AuthEndpoints
             .RequireRateLimiting("login")
             .AllowAnonymous();
 
+        group.MapPost("/refresh", RefreshAsync)
+            .AddEndpointFilter<ValidationFilter<RefreshRequest>>()
+            .RequireRateLimiting("login")
+            .AllowAnonymous();
+
+        group.MapPost("/logout", LogoutAsync)
+            .AddEndpointFilter<ValidationFilter<RefreshRequest>>()
+            .AllowAnonymous();
+
         return app;
     }
     
@@ -31,7 +42,7 @@ public static class AuthEndpoints
         var result = await auth.LoginAsync(body.Username, body.Password, ct);
 
         return result.Succeeded
-            ? Results.Ok(new { token = result.Token, expiresAt = result.ExpiresAt })
+            ? Results.Ok(new { token = result.Token, expiresAt = result.ExpiresAt, refreshToken = result.RefreshToken })
             : Results.Unauthorized();
     }
 
@@ -46,5 +57,25 @@ public static class AuthEndpoints
             ? Results.Created($"/api/users/{body.Username}", null)
             : Results.Problem(detail: string.Join("; ", result.Errors), statusCode: StatusCodes.Status400BadRequest);
     }
-    
+
+    private static async Task<IResult> RefreshAsync(
+        RefreshRequest body,
+        IAuthenticationService auth,
+        CancellationToken ct)
+    {
+        var result = await auth.RefreshAsync(body.RefreshToken, ct);
+
+        return result.Succeeded
+            ? Results.Ok(new { token = result.Token, expiresAt = result.ExpiresAt, refreshToken = result.RefreshToken })
+            : Results.Unauthorized();
+    }
+
+    private static async Task<IResult> LogoutAsync(
+        RefreshRequest body,
+        IAuthenticationService auth,
+        CancellationToken ct)
+    {
+        await auth.LogoutAsync(body.RefreshToken, ct);
+        return Results.NoContent();
+    }
 }

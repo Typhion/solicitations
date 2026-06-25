@@ -1,4 +1,5 @@
-﻿using Application.Invites;
+﻿using Application.Auth;
+using Application.Invites;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public static class Startup
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<ISolicitationRepository, SolicitationRepository>();
         services.AddScoped<IInviteRepository, InviteRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
         return services;
     }

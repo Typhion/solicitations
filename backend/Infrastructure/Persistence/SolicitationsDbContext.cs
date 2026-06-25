@@ -1,4 +1,5 @@
-﻿using Domain.Invites;
+﻿using Domain.Auth;
+using Domain.Invites;
 using Domain.Solicitation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -15,6 +16,7 @@ public class SolicitationsDbContext : IdentityDbContext<AppUser, IdentityRole<Gu
     
     public DbSet<Solicitation> Solicitations => Set<Solicitation>();
     public DbSet<Invite> Invites => Set<Invite>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

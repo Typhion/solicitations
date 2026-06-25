@@ -10,11 +10,12 @@ public class LoginResultTests
     {
         var expiresAt = DateTime.UtcNow.AddHours(1);
 
-        var result = LoginResult.Success("jwt-token", expiresAt);
+        var result = LoginResult.Success("jwt-token", expiresAt, "refresh-token");
 
         result.Succeeded.Should().BeTrue();
         result.Token.Should().Be("jwt-token");
         result.ExpiresAt.Should().Be(expiresAt);
+        result.RefreshToken.Should().Be("refresh-token");
         result.Error.Should().BeNull();
     }
 
@@ -26,6 +27,7 @@ public class LoginResultTests
         result.Succeeded.Should().BeFalse();
         result.Token.Should().BeNull();
         result.ExpiresAt.Should().BeNull();
+        result.RefreshToken.Should().BeNull();
         result.Error.Should().Be("Invalid username or password.");
     }
 }

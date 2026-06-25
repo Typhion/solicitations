@@ -4,7 +4,7 @@ using Application.Invites;
 namespace Application.Auth;
 
 public sealed class RegistrationService(
-    IInviteRepository invites, IInviteTokenService tokens, IUserRegistrar registrar)
+    IInviteRepository invites, ISecureTokenService tokens, IUserRegistrar registrar)
 {
     public async Task<RegisterResult> RegisterAsync(RegisterRequest req, CancellationToken ct)
     {

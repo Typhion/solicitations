@@ -5,4 +5,6 @@ namespace Application.Auth;
 public interface IAuthenticationService
 {
     Task<LoginResult> LoginAsync(string username, string password, CancellationToken ct);
+    Task<LoginResult> RefreshAsync(string refreshToken, CancellationToken ct);
+    Task LogoutAsync(string refreshToken, CancellationToken ct);
 }

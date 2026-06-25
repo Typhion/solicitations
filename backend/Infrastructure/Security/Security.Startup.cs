@@ -1,7 +1,6 @@
 using System.Text;
 using Application.Auth;
 using Application.Common;
-using Application.Invites;
 using Application.Users;
 using Infrastructure.Interfaces;
 using Infrastructure.Persistence;
@@ -64,7 +63,7 @@ public static class Startup
             .AddPolicy("Admin", policy => policy.RequireRole("Admin"))
             .AddPolicy("CanManageSolicitations", policy => policy.RequireAuthenticatedUser());
         
-        services.AddScoped<IInviteTokenService, InviteTokenService>();
+        services.AddScoped<ISecureTokenService, SecureTokenService>();
         services.AddScoped<IUserRegistrar, UserRegistrar>();
         services.AddScoped<IUserDirectory, UserDirectory>();
         

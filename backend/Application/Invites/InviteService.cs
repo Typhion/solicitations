@@ -5,7 +5,7 @@ using Domain.Invites;
 namespace Application.Invites;
 
 public sealed class InviteService(
-    IInviteRepository repository, IInviteTokenService tokens, ICurrentUser currentUser)
+    IInviteRepository repository, ISecureTokenService tokens, ICurrentUser currentUser)
 {
     public async Task<CreatedInviteResponse> CreateAsync(CreateInviteRequest req, CancellationToken ct)
     {
