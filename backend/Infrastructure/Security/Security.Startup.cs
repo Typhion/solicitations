@@ -2,6 +2,7 @@ using System.Text;
 using Application.Auth;
 using Application.Common;
 using Application.Invites;
+using Application.Users;
 using Infrastructure.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -65,6 +66,7 @@ public static class Startup
         
         services.AddScoped<IInviteTokenService, InviteTokenService>();
         services.AddScoped<IUserRegistrar, UserRegistrar>();
+        services.AddScoped<IUserDirectory, UserDirectory>();
         
         return services;
     }

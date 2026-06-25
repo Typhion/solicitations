@@ -13,12 +13,16 @@ public sealed class GlobalExceptionHandler(
     {
         logger.LogError(exception, "Unhandled exception");
 
-        context.Response.StatusCode = exception switch
+        // Surface the message only for known, user-safe exception types.
+        // Everything else is a 500 with no detail — never leak internal messages.
+        var (status, detail) = exception switch
         {
-            NotFoundException => StatusCodes.Status404NotFound,
-            DomainException => StatusCodes.Status409Conflict,
-            _ => StatusCodes.Status500InternalServerError
+            NotFoundException => (StatusCodes.Status404NotFound, exception.Message),
+            DomainException => (StatusCodes.Status409Conflict, exception.Message),
+            _ => (StatusCodes.Status500InternalServerError, (string?)null)
         };
+
+        context.Response.StatusCode = status;
 
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
@@ -27,7 +31,8 @@ public sealed class GlobalExceptionHandler(
             ProblemDetails =
             {
                 Title = "An error occurred.",
-                Status = context.Response.StatusCode
+                Status = status,
+                Detail = detail
             }
         });
     }
