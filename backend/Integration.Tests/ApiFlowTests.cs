@@ -69,8 +69,9 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         // and sees none of the admin's solicitations
         var friendToken = await LoginAsync(username, password);
         using var listReq = Authorized(HttpMethod.Get, "/api/solicitations", friendToken);
-        var items = await (await _client.SendAsync(listReq)).Content.ReadFromJsonAsync<List<SolicitationDto>>();
-        items.Should().BeEmpty();
+        var page = await (await _client.SendAsync(listReq)).Content.ReadFromJsonAsync<PagedDto>();
+        page!.Items.Should().BeEmpty();
+        page.TotalCount.Should().Be(0);
     }
 
     // ---------- helpers ----------
@@ -102,4 +103,5 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     private sealed record LoginDto(string Token, DateTime ExpiresAt, string RefreshToken);
     private sealed record SolicitationDto(Guid Id, string JobName);
     private sealed record CreatedInviteDto(Guid Id, string Token);
+    private sealed record PagedDto(List<SolicitationDto> Items, int TotalCount);
 }

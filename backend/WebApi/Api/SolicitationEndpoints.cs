@@ -10,8 +10,8 @@ public static class SolicitationEndpoints
             .RequireAuthorization("CanManageSolicitations")
             .WithTags("Solicitations");
 
-        group.MapGet("/", async (SolicitationService service, CancellationToken ct) =>
-            Results.Ok(await service.ListAsync(ct)));
+        group.MapGet("/", async (SolicitationService service, CancellationToken ct, int page = 1, int pageSize = 20) =>
+            Results.Ok(await service.ListAsync(page, pageSize, ct)));
 
         group.MapGet("/{id:guid}", async (Guid id, SolicitationService service, CancellationToken ct) =>
             Results.Ok(await service.GetAsync(id, ct)));

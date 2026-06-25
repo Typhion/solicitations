@@ -77,16 +77,32 @@ public class SolicitationServiceTests
     // ---------- List ----------
 
     [Fact]
-    public async Task ListAsync_ReturnsCurrentUsersMappedResponses()
+    public async Task ListAsync_ReturnsCurrentUsersMappedResponses_Paged()
     {
         var items = new List<Solicitation> { NewSolicitation("One"), NewSolicitation("Two") };
-        _repository.ListAsync(_ownerId, Arg.Any<CancellationToken>()).Returns(items);
+        _repository.CountAsync(_ownerId, Arg.Any<CancellationToken>()).Returns(2);
+        _repository.ListAsync(_ownerId, 0, 20, Arg.Any<CancellationToken>()).Returns(items);
 
-        var responses = await _sut.ListAsync(CancellationToken.None);
+        var result = await _sut.ListAsync(page: 1, pageSize: 20, CancellationToken.None);
 
-        responses.Should().HaveCount(2);
-        responses.Select(r => r.JobName).Should().Equal("One", "Two");
-        await _repository.Received(1).ListAsync(_ownerId, Arg.Any<CancellationToken>());
+        result.Items.Should().HaveCount(2);
+        result.Items.Select(r => r.JobName).Should().Equal("One", "Two");
+        result.TotalCount.Should().Be(2);
+        result.Page.Should().Be(1);
+        await _repository.Received(1).ListAsync(_ownerId, 0, 20, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ListAsync_ClampsPageSizeAndComputesSkip()
+    {
+        _repository.CountAsync(_ownerId, Arg.Any<CancellationToken>()).Returns(0);
+        _repository.ListAsync(_ownerId, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Solicitation>());
+
+        await _sut.ListAsync(page: 3, pageSize: 1000, CancellationToken.None);
+
+        // pageSize clamped to 100; skip = (3-1)*100 = 200
+        await _repository.Received(1).ListAsync(_ownerId, 200, 100, Arg.Any<CancellationToken>());
     }
 
     // ---------- Update ----------

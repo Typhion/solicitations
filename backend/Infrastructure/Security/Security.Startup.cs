@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Infrastructure.Security;
@@ -16,7 +17,6 @@ public static class Startup
 {
     internal static IServiceCollection AddSecurity(this IServiceCollection services, IConfiguration config)
     {
-        var jwt = config.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
         services.AddOptions<JwtSettings>()
             .Bind(config.GetSection(JwtSettings.SectionName))
             .Validate(s => !string.IsNullOrWhiteSpace(s.Key) && s.Key.Length >= 32,
@@ -44,8 +44,14 @@ public static class Startup
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+            .AddJwtBearer();
+
+        // Configure JwtBearer lazily from the validated JwtSettings, so the signing key is
+        // read when options are first resolved (config fully built) — not eagerly at registration.
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtSettings>>((options, jwtOptions) =>
             {
+                var jwt = jwtOptions.Value;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

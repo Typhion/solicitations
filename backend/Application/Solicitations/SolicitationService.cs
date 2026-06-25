@@ -6,8 +6,15 @@ namespace Application.Solicitations;
 
 public sealed class SolicitationService(ISolicitationRepository repository, ICurrentUser currentUser)
 {
-    public async Task<IReadOnlyList<SolicitationResponse>> ListAsync(CancellationToken ct)
-        => (await repository.ListAsync(currentUser.Id, ct)).Select(s => s.ToResponse()).ToList();
+    public async Task<PagedResult<SolicitationResponse>> ListAsync(int page, int pageSize, CancellationToken ct)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var total = await repository.CountAsync(currentUser.Id, ct);
+        var items = await repository.ListAsync(currentUser.Id, (page - 1) * pageSize, pageSize, ct);
+        return new PagedResult<SolicitationResponse>(items.Select(s => s.ToResponse()).ToList(), page, pageSize, total);
+    }
     
     public async Task<SolicitationResponse> GetAsync(Guid id, CancellationToken ct)
     {
