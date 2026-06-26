@@ -1,13 +1,14 @@
-# Local development only. Brings up the Postgres the backend talks to.
+# Local development only. Builds and runs the full stack: Postgres + API + web.
 # NOT the server stack — that lives in deploy/docker-compose.yml and runs on Hetzner.
 #
 # Usage:
-#   docker compose up -d        # start Postgres in the background
+#   docker compose up --build   # build images and start the whole stack
+#   docker compose up -d        # start in the background
 #   docker compose down         # stop it (data is kept in the named volume)
 #   docker compose down -v      # stop it AND wipe the data volume
 #
-# Connection string for the API (matches deploy/, but Host=localhost):
-#   Host=localhost;Port=5432;Database=solicitations;Username=solicitations;Password=devpassword
+# The dev secrets below are plaintext on purpose — they only ever run on your machine.
+# Override any of them by creating a (gitignored) .env file; see .env.example.
 services:
   db:
     image: postgres:17-alpine
@@ -15,7 +16,7 @@ services:
     environment:
       POSTGRES_DB: solicitations
       POSTGRES_USER: solicitations
-      POSTGRES_PASSWORD: devpassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
     ports:
       # Exposed on localhost so the API (and tools like psql / DataGrip) can reach it.
       - "5432:5432"
@@ -26,6 +27,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=solicitations;Username=solicitations;Password=${POSTGRES_PASSWORD:-devpassword}"
+      # Dev-only defaults. Jwt__Key must be >=32 chars; Seed__AdminPassword must satisfy the
+      # 12-char upper+lower+digit+symbol policy. Override via .env for anything real.
+      Jwt__Key: "${JWT_KEY:-dev-only-insecure-key-change-me-32+chars!!}"
+      Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-Admin!Dev12345}"
+    ports:
+      - "8080:8080"
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      # Served on 4200 so the dev CORS origin (http://localhost:4200) matches.
+      - "4200:80"
 
 volumes:
   pgdata:
