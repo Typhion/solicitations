@@ -2,11 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status
-
-Early scaffolding. Most of the app is not built yet — prefer establishing patterns over
-matching a large existing codebase.
-
 ## Layout
 
 Three independent areas, deployed as separate containers:
@@ -17,17 +12,52 @@ Three independent areas, deployed as separate containers:
 
 ## Backend (`backend/`)
 
+Clean Architecture, minimal APIs, **no MediatR**. Dependencies point inward:
+`WebApi → Infrastructure → Application → Domain`.
+
+- `Domain/` — aggregates + value objects, no framework deps. `Domain/Core/Entity.cs` is the
+  base entity (assigns a `Guid Id` in its ctor); `Domain/Core/DomainException.cs` is the
+  business-rule violation (maps to 409). Aggregates own their children via **encapsulated
+  collections** (e.g. `Solicitation.AddMeeting(...)`, never a public setter).
+- `Application/` — use-case services, DTOs, and the **interfaces** Infrastructure implements
+  (`ISolicitationRepository`, `ICurrentUser`, `ISecureTokenService`, `IUserRegistrar`,
+  `IUserDirectory`, `IEmailSender`, …). References Domain only.
+- `Infrastructure/` — EF Core (Npgsql) + ASP.NET Identity + JWT. EF config lives in
+  `Persistence/Configurations/` (auto-applied via `ApplyConfigurationsFromAssembly`);
+  repositories implement the Application interfaces.
+- `WebApi/` — composition root (`Program.cs` wires every layer) + HTTP. Endpoints are
+  minimal-API groups in `Api/*Endpoints.cs`; FluentValidation validators in `Validation/`
+  run via a generic `ValidationFilter<T>` endpoint filter; `Errors/GlobalExceptionHandler`
+  turns exceptions into RFC-7807 ProblemDetails (NotFound→404, DomainException→409, else 500).
+- Tests: `Application.Tests.Unit` (xUnit + NSubstitute + FluentAssertions) and
+  `Integration.Tests` (`WebApplicationFactory` + **Testcontainers** Postgres).
+
+### Commands (from repo root)
+
 - Build: `dotnet build backend/backend.sln`
-- Test: `dotnet test backend/backend.sln` (no test project exists yet)
-- Run one test (once a test project exists): `dotnet test --filter "FullyQualifiedName~MyTest"`
+- Test (all): `dotnet test backend/backend.sln` — **integration tests need Docker** (Testcontainers)
+- One test: `dotnet test backend/backend.sln --filter "FullyQualifiedName~MyTest"`
+- Run: `dotnet run --project backend/WebApi` (Swagger/OpenAPI at `/openapi`, health at `/health/live` + `/health/ready`)
+- EF migration: `dotnet ef migrations add <Name> --project backend/Infrastructure --startup-project backend/WebApi`
+  (applied automatically on boot by `InitialiseDatabaseAsync` → `MigrateAsync`)
 
-Currently only the `Domain` class library exists; the `.sln` keeps an empty `src`
-solution folder as the placeholder for the future API/host project.
+### Conventions & gotchas
 
-Domain is organized DDD-style: `Domain/Kernel/Entity.cs` is the shared base entity
-(assigns a `Guid Id` on construction); each aggregate gets its own folder
-(e.g. `Domain/User/`). `Nullable` and `ImplicitUsings` are enabled — don't add `using`
-lines for the common namespaces and keep reference types non-null by default.
+- `Nullable` + `ImplicitUsings` are on everywhere — don't add `using`s for common namespaces;
+  keep reference types non-null (use `= null!` on EF-populated properties).
+- **Application feature namespaces are plural** (`Application.Solicitations`) to avoid shadowing
+  the singular Domain namespace/type (`Domain.Solicitation.Solicitation`). Reusing the singular
+  name on the Application side makes the bare type name bind to the namespace — use the plural.
+- Endpoints inject services directly (no mediator). Expected failures **return** a result or
+  throw `NotFoundException`/`DomainException`; only unexpected errors throw to the 500 path.
+- Auth: short-lived JWT access tokens + rotating, hashed, single-use **refresh tokens** (with
+  reuse detection). Registration is **invite-gated** (admin issues invites); `Admin` vs `Member`
+  roles drive policies. Per-user data (solicitations) is owner-scoped via `ICurrentUser`.
+- Secrets via user-secrets (dev) / env (prod), never in `appsettings`: `Jwt__Key`,
+  `Seed__AdminPassword`, `ConnectionStrings__Default`. JWT options are validated on start.
+- EF: store enums as strings (`HasConversion<string>()`); aggregate-child entities added through
+  a navigation need `ValueGeneratedNever()` on their `Id` (the domain assigns it).
+- List endpoints are paginated (`?page=&pageSize=`) returning `PagedResult<T>`.
 
 ## Frontend (`frontend/`)
 
