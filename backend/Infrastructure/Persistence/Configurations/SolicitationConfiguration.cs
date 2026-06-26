@@ -39,5 +39,12 @@ internal sealed class SolicitationConfiguration : IEntityTypeConfiguration<Solic
         builder.Navigation(s => s.Location).IsRequired();
         builder.Navigation(s => s.Website).IsRequired();
         builder.Navigation(s => s.Contact).IsRequired();
+        
+        builder.HasMany(s => s.Meetings)
+            .WithOne()
+            .HasForeignKey("SolicitationId")
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Metadata.FindNavigation(nameof(Solicitation.Meetings))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }

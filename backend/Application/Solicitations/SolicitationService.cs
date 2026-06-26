@@ -50,4 +50,24 @@ public sealed class SolicitationService(ISolicitationRepository repository, ICur
         repository.Remove(solicitation);
         await repository.SaveChangesAsync(ct);
     }
+
+    public async Task<SolicitationResponse> AddMeetingAsync(Guid id, AddMeetingRequest req, CancellationToken ct)
+    {
+        var solicitation = await repository.GetByIdAsync(id, currentUser.Id, ct) ?? throw new NotFoundException(nameof(Solicitation), id);
+
+        solicitation.AddMeeting(req.ScheduledAtUtc, req.Type, req.IsOnline, req.OnlineTool);
+        await repository.SaveChangesAsync(ct);
+        return solicitation.ToResponse();
+    }
+
+    public async Task RemoveMeetingAsync(Guid id, Guid meetingId, CancellationToken ct)
+    {
+        var solicitation = await repository.GetByIdAsync(id, currentUser.Id, ct) ?? throw new NotFoundException(nameof(Solicitation), id);
+
+        if (solicitation.Meetings.All(m => m.Id != meetingId))
+            throw new NotFoundException("Meeting", meetingId);
+
+        solicitation.RemoveMeeting(meetingId);
+        await repository.SaveChangesAsync(ct);
+    }
 }

@@ -1,4 +1,6 @@
 using Application.Auth;
+using Asp.Versioning;
+using Asp.Versioning.Builder;
 
 namespace WebApi.Api;
 
@@ -8,9 +10,9 @@ public sealed record RefreshRequest(string RefreshToken);
 
 public static class AuthEndpoints
 {
-    public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app, ApiVersionSet versionSet)
     {
-        var group = app.MapGroup("/api/auth").WithTags("Auth");
+        var group = app.MapGroup("/api/auth").WithApiVersionSet(versionSet).WithTags("Auth");
 
         group.MapPost("/login", LoginAsync)
             .AddEndpointFilter<ValidationFilter<LoginRequest>>()

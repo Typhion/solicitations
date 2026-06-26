@@ -1,4 +1,6 @@
 using Application.Users;
+using Asp.Versioning;
+using Asp.Versioning.Builder;
 
 namespace WebApi.Api;
 
@@ -6,10 +8,11 @@ public sealed record GrantRoleRequest(string Role);
 
 public static class UserEndpoints
 {
-    public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app, ApiVersionSet versionSet)
     {
         var group = app.MapGroup("/api/users")
             .RequireAuthorization("Admin")
+            .WithApiVersionSet(versionSet)
             .WithTags("Users");
 
         group.MapGet("/", async (UserManagementService service, CancellationToken ct) =>

@@ -8,8 +8,9 @@ internal sealed class SolicitationRepository(SolicitationsDbContext context) : I
 {
     public async Task<IReadOnlyList<Solicitation>> ListAsync(Guid ownerId, int skip, int take, CancellationToken ct)
         => await context.Solicitations.AsNoTracking()
+            .Include(s => s.Meetings)
             .Where(s => s.OwnerId == ownerId)
-            .OrderBy(s => s.Id)            // stable order so paging is deterministic
+            .OrderBy(s => s.Id)
             .Skip(skip).Take(take)
             .ToListAsync(ct);
 
@@ -17,7 +18,8 @@ internal sealed class SolicitationRepository(SolicitationsDbContext context) : I
         => context.Solicitations.CountAsync(s => s.OwnerId == ownerId, ct);
 
     public Task<Solicitation?> GetByIdAsync(Guid id, Guid ownerId, CancellationToken ct)
-        => context.Solicitations.FirstOrDefaultAsync(s => s.Id == id && s.OwnerId == ownerId, ct);
+        => context.Solicitations.Include(s => s.Meetings)
+            .FirstOrDefaultAsync(s => s.Id == id && s.OwnerId == ownerId, ct);
 
     public void Add(Solicitation solicitation) => context.Solicitations.Add(solicitation);
 

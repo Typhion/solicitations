@@ -1,0 +1,27 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'backend/**', '.github/workflows/backend-ci.yml' ]
+  pull_request:
+    paths: [ 'backend/**', '.github/workflows/backend-ci.yml' ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest   # has Docker preinstalled, needed by the Testcontainers integration tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore backend/backend.sln
+
+      - name: Build
+        run: dotnet build backend/backend.sln --no-restore -c Release
+
+      - name: Test (unit + integration)
+        run: dotnet test backend/backend.sln --no-build -c Release --logger "console;verbosity=normal"

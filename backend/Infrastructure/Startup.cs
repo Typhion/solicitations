@@ -1,4 +1,6 @@
-﻿using Infrastructure.Persistence;
+﻿using Application.Common;
+using Infrastructure.Notifications;
+using Infrastructure.Persistence;
 using Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +13,8 @@ public static class Startup
     {
         services.AddPersistence(config);
         services.AddSecurity(config);
-        
+        services.AddScoped<IEmailSender, LoggingEmailSender>();
+
         return services;
     }
 

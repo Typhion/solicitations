@@ -1,12 +1,23 @@
-﻿using Domain.Core;
+using Domain.Core;
 
 namespace Domain.Meeting;
 
 public class Meeting : Entity
 {
-    public DateTime DateTime { get; private set; }
-    public bool IsOnline { get; private set; }
-    public string OnlineTool { get; private set; } = null!;
-    public Solicitation.Solicitation Solicitation { get; private set; } = null!;
+    private Meeting() { }
+
+    public Meeting(DateTime scheduledAtUtc, MeetingType type, bool isOnline, string? onlineTool)
+    {
+        if (isOnline) ArgumentException.ThrowIfNullOrWhiteSpace(onlineTool);
+
+        ScheduledAtUtc = scheduledAtUtc;
+        Type = type;
+        IsOnline = isOnline;
+        OnlineTool = isOnline ? onlineTool : null;
+    }
+
+    public DateTime ScheduledAtUtc { get; private set; }
     public MeetingType Type { get; private set; }
+    public bool IsOnline { get; private set; }
+    public string? OnlineTool { get; private set; }
 }

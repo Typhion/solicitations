@@ -1,13 +1,16 @@
 using Application.Solicitations;
+using Asp.Versioning;
+using Asp.Versioning.Builder;
 
 namespace WebApi.Api;
 
 public static class SolicitationEndpoints
 {
-    public static IEndpointRouteBuilder MapSolicitationEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapSolicitationEndpoints(this IEndpointRouteBuilder app, ApiVersionSet versionSet)
     {
         var group = app.MapGroup("/api/solicitations")
             .RequireAuthorization("CanManageSolicitations")
+            .WithApiVersionSet(versionSet)
             .WithTags("Solicitations");
 
         group.MapGet("/", async (SolicitationService service, CancellationToken ct, int page = 1, int pageSize = 20) =>
@@ -33,6 +36,19 @@ public static class SolicitationEndpoints
         group.MapDelete("/{id:guid}", async (Guid id, SolicitationService service, CancellationToken ct) =>
         {
             await service.DeleteAsync(id, ct);
+            return Results.NoContent();
+        });
+
+        group.MapPost("/{id:guid}/meetings", async (Guid id, AddMeetingRequest body, SolicitationService service, CancellationToken ct) =>
+            {
+                var updated = await service.AddMeetingAsync(id, body, ct);
+                return Results.Ok(updated);
+            })
+            .AddEndpointFilter<ValidationFilter<AddMeetingRequest>>();
+
+        group.MapDelete("/{id:guid}/meetings/{meetingId:guid}", async (Guid id, Guid meetingId, SolicitationService service, CancellationToken ct) =>
+        {
+            await service.RemoveMeetingAsync(id, meetingId, ct);
             return Results.NoContent();
         });
 

@@ -39,6 +39,9 @@ public static class Startup
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<SolicitationsDbContext>();
 
+        // Strengthen password hashing (OWASP-aligned PBKDF2-SHA256 iteration count).
+        services.Configure<PasswordHasherOptions>(options => options.IterationCount = 210_000);
+
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
 

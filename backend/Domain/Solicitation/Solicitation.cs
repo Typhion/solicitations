@@ -19,8 +19,10 @@ public class Solicitation : Entity
     public Website Website { get; private set; } = null!;
     public Contact Contact { get; private set; } = null!;
     public SolicitationStatus Status { get; private set; }
-    // public ICollection<Meeting.Meeting> Meetings { get; private set; }
     public Guid OwnerId { get; private set; }
+
+    private readonly List<Meeting.Meeting> _meetings = new();
+    public IReadOnlyCollection<Meeting.Meeting> Meetings => _meetings.AsReadOnly();
     
     public void UpdateDetails(string jobName, Location location, Website website, Contact contact)
     {
@@ -36,4 +38,18 @@ public class Solicitation : Entity
     }
 
     public void ChangeStatus(SolicitationStatus status) => Status = status;
+    
+    public Meeting.Meeting AddMeeting(DateTime scheduledAtUtc, Meeting.MeetingType type, bool isOnline, string? onlineTool)
+    {
+        var meeting = new Meeting.Meeting(scheduledAtUtc, type, isOnline, onlineTool);
+        _meetings.Add(meeting);
+        return meeting;
+    }
+
+    public void RemoveMeeting(Guid meetingId)
+    {
+        var meeting = _meetings.FirstOrDefault(m => m.Id == meetingId)
+            ?? throw new DomainException("Meeting not found on this solicitation.");
+        _meetings.Remove(meeting);
+    }
 }

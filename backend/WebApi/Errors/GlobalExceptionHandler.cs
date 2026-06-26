@@ -11,16 +11,17 @@ public sealed class GlobalExceptionHandler(
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context, Exception exception, CancellationToken ct)
     {
-        logger.LogError(exception, "Unhandled exception");
-
-        // Surface the message only for known, user-safe exception types.
-        // Everything else is a 500 with no detail — never leak internal messages.
         var (status, detail) = exception switch
         {
             NotFoundException => (StatusCodes.Status404NotFound, exception.Message),
             DomainException => (StatusCodes.Status409Conflict, exception.Message),
             _ => (StatusCodes.Status500InternalServerError, (string?)null)
         };
+        
+        if (status >= 500)
+            logger.LogError(exception, "Unhandled exception");
+        else
+            logger.LogWarning("Request failed ({Status}): {Message}", status, exception.Message);
 
         context.Response.StatusCode = status;
 

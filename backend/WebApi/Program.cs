@@ -1,8 +1,10 @@
 using System.Threading.RateLimiting;
 using Application;
+using Asp.Versioning;
 using Infrastructure;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 using WebApi.Api;
@@ -21,8 +23,7 @@ builder.Host.UseSerilog((context, config) => config
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-    // Per-client bucket (partitioned by IP) instead of one global window.
+    
     var loginPermit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 5);
     options.AddPolicy("login", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
@@ -46,10 +47,25 @@ builder.Services.AddCorsPolicies(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<SolicitationsDbContext>("database", tags: ["ready"]);
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+});
+
 var app = builder.Build();
 
 await app.Services.InitialiseDatabaseAsync();
 
+app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseCors("spa");

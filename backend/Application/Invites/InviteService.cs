@@ -5,7 +5,7 @@ using Domain.Invites;
 namespace Application.Invites;
 
 public sealed class InviteService(
-    IInviteRepository repository, ISecureTokenService tokens, ICurrentUser currentUser)
+    IInviteRepository repository, ISecureTokenService tokens, ICurrentUser currentUser, IEmailSender email)
 {
     public async Task<CreatedInviteResponse> CreateAsync(CreateInviteRequest req, CancellationToken ct)
     {
@@ -14,6 +14,11 @@ public sealed class InviteService(
             DateTime.UtcNow.AddDays(req.ExpiresInDays ?? 7), currentUser.Id, req.Email);
         repository.Add(invite);
         await repository.SaveChangesAsync(ct);
+
+        if (req.Email is not null)
+            await email.SendAsync(req.Email, "You've been invited",
+                $"Use this token to register: {token}", ct);
+
         return new CreatedInviteResponse(invite.Id, token, invite.ExpiresAtUtc);
     }
 

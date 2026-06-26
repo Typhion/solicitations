@@ -1,13 +1,16 @@
 using Application.Invites;
+using Asp.Versioning;
+using Asp.Versioning.Builder;
 
 namespace WebApi.Api;
 
 public static class InviteEndpoints
 {
-    public static IEndpointRouteBuilder MapInviteEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapInviteEndpoints(this IEndpointRouteBuilder app, ApiVersionSet versionSet)
     {
         var group = app.MapGroup("/api/invites")
             .RequireAuthorization("Admin")
+            .WithApiVersionSet(versionSet)
             .WithTags("Invites");
 
         group.MapPost("/", async (CreateInviteRequest body, InviteService service, CancellationToken ct) =>
