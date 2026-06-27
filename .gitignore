@@ -31,3 +31,6 @@ crash.log
 # ---- Ansible (infra/ansible) ----
 inventory.ini
 *.retry
+
+# Personal, auto-merged Compose tweaks (not committed)
+docker-compose.override.yml
