@@ -9,6 +9,8 @@
 # prod-parity checks via `docker compose up --build web`, but isn't part of the inner loop.
 services:
   api:
+    image: solicitations-api-dev # distinct from the final image so dev never reuses the prod build
+    entrypoint: []               # clear the final image's "dotnet WebApi.dll" so command isn't appended to it
     build:
       context: ./backend
       target: build              # SDK stage from backend/Dockerfile (runs as root, has source)

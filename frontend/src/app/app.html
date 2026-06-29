@@ -1,2 +1,10 @@
-<h1>{{ title() }}</h1>
-<router-outlet />
+<nav class="top-bar">
+  <a class="brand" routerLink="/solicitations">Solicitations</a>
+  @if (auth.isLoggedIn()) {
+    <button type="button" class="logout" (click)="logout()">Log out</button>
+  }
+</nav>
+
+<main class="content">
+  <router-outlet />
+</main>
