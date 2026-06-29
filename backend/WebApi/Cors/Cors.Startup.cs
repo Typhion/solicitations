@@ -11,7 +11,8 @@ public static class Startup
             options.AddPolicy("spa", policy =>
                 policy.WithOrigins(allowedOrigins)
                     .AllowAnyHeader()
-                    .AllowAnyMethod());
+                    .AllowAnyMethod()
+                    .AllowCredentials()); // required so the browser sends/receives the refresh cookie
         });
         
         return services;
