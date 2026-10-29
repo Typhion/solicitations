@@ -8,7 +8,7 @@ export enum SolicitationStatus {
     Accepted = 7,
     Rejected = 8,
     Withdrawn = 9,
-    Unanswered = 10
+    Unanswered = 10,
 }
 
 export enum MeetingType {
@@ -21,7 +21,7 @@ export enum MeetingType {
     PanelInterview = 7,
     OnSite = 8,
     FinalRound = 9,
-    OfferDiscussion = 10
+    OfferDiscussion = 10,
 }
 
 export interface Location {
@@ -78,3 +78,5 @@ export interface AddMeetingRequest {
     isOnline: boolean;
     onlineTool: string | null;
 }
+
+export type UpdateMeetingRequest = AddMeetingRequest;

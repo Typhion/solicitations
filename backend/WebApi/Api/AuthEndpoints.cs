@@ -8,6 +8,8 @@ namespace WebApi.Api;
 
 public sealed record LoginRequest(string Username, string Password);
 
+public sealed record TwoFactorLoginRequest(string ChallengeToken, string Code, bool UseRecoveryCode);
+
 public static class AuthEndpoints
 {
     private const string RefreshCookieName = "refreshToken";
@@ -20,6 +22,11 @@ public static class AuthEndpoints
 
         group.MapPost("/login", LoginAsync)
             .AddEndpointFilter<ValidationFilter<LoginRequest>>()
+            .RequireRateLimiting("login")
+            .AllowAnonymous();
+
+        group.MapPost("/login/2fa", LoginWithTwoFactorAsync)
+            .AddEndpointFilter<ValidationFilter<TwoFactorLoginRequest>>()
             .RequireRateLimiting("login")
             .AllowAnonymous();
 
@@ -47,8 +54,26 @@ public static class AuthEndpoints
         CancellationToken ct)
     {
         var result = await auth.LoginAsync(body.Username, body.Password, ct);
+        if (result.RequiresTwoFactor)
+            return Results.Ok(new { requiresTwoFactor = true, challengeToken = result.ChallengeToken });
         if (!result.Succeeded)
             return Results.Unauthorized();
+
+        SetRefreshCookie(response, result.RefreshToken!, env, jwtOptions.Value);
+        return Results.Ok(new { token = result.Token, expiresAt = result.ExpiresAt });
+    }
+
+    private static async Task<IResult> LoginWithTwoFactorAsync(
+        TwoFactorLoginRequest body,
+        IAuthenticationService auth,
+        HttpResponse response,
+        IWebHostEnvironment env,
+        IOptions<JwtSettings> jwtOptions,
+        CancellationToken ct)
+    {
+        var result = await auth.LoginWithTwoFactorAsync(body.ChallengeToken, body.Code, body.UseRecoveryCode, ct);
+        if (!result.Succeeded)
+            return Results.Problem(detail: result.Error, statusCode: StatusCodes.Status401Unauthorized);
 
         SetRefreshCookie(response, result.RefreshToken!, env, jwtOptions.Value);
         return Results.Ok(new { token = result.Token, expiresAt = result.ExpiresAt });
@@ -104,7 +129,7 @@ public static class AuthEndpoints
         return Results.NoContent();
     }
 
-    private static void SetRefreshCookie(HttpResponse response, string token, IWebHostEnvironment env, JwtSettings jwt) =>
+    internal static void SetRefreshCookie(HttpResponse response, string token, IWebHostEnvironment env, JwtSettings jwt) =>
         response.Cookies.Append(RefreshCookieName, token, BuildCookieOptions(env, DateTimeOffset.UtcNow.AddDays(jwt.RefreshTokenDays)));
 
     private static void DeleteRefreshCookie(HttpResponse response, IWebHostEnvironment env) =>

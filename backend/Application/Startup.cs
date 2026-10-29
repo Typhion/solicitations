@@ -1,3 +1,4 @@
+using Application.Account;
 using Application.Auth;
 using Application.Invites;
 using Application.Solicitations;
@@ -14,6 +15,7 @@ public static class Startup
         services.AddScoped<InviteService>();
         services.AddScoped<RegistrationService>();
         services.AddScoped<UserManagementService>();
+        services.AddScoped<AccountService>();
         
         return services;
     }

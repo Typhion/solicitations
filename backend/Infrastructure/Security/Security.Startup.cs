@@ -1,4 +1,5 @@
 using System.Text;
+using Application.Account;
 using Application.Auth;
 using Application.Common;
 using Application.Users;
@@ -37,7 +38,9 @@ public static class Startup
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddRoles<IdentityRole<Guid>>()
-            .AddEntityFrameworkStores<SolicitationsDbContext>();
+            .AddEntityFrameworkStores<SolicitationsDbContext>()
+            // TOTP codes from authenticator apps (AddIdentityCore registers no token providers).
+            .AddTokenProvider<AuthenticatorTokenProvider<AppUser>>(TokenOptions.DefaultAuthenticatorProvider);
 
         // Strengthen password hashing (OWASP-aligned PBKDF2-SHA256 iteration count).
         services.Configure<PasswordHasherOptions>(options => options.IterationCount = 210_000);
@@ -75,6 +78,7 @@ public static class Startup
         services.AddScoped<ISecureTokenService, SecureTokenService>();
         services.AddScoped<IUserRegistrar, UserRegistrar>();
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<IAccountManager, AccountManager>();
         
         return services;
     }

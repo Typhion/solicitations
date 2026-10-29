@@ -29,12 +29,54 @@ internal sealed class AuthenticationService(
             return LoginResult.Fail("Invalid username or password.");
         }
 
+        // Second factor required: don't reset the failed count yet, or someone holding the password
+        // could reset the lockout counter between code guesses.
+        if (await userManager.GetTwoFactorEnabledAsync(user))
+            return LoginResult.TwoFactorRequired(
+                tokenService.CreateTwoFactorChallenge(user.Id, await userManager.GetSecurityStampAsync(user)));
+
         await userManager.ResetAccessFailedCountAsync(user);
-        var roles = await userManager.GetRolesAsync(user);
-        var (token, expiresAt) = tokenService.CreateToken(user, roles);
-        var refresh = AddRefreshToken(user, DateTime.UtcNow);
-        await refreshTokens.SaveChangesAsync(ct);
-        return LoginResult.Success(token, expiresAt, refresh);
+        return await IssueSessionAsync(user, ct);
+    }
+
+    public async Task<LoginResult> LoginWithTwoFactorAsync(string challengeToken, string code, bool isRecoveryCode, CancellationToken ct)
+    {
+        var challenge = tokenService.ReadTwoFactorChallenge(challengeToken);
+        if (challenge is null) return LoginResult.Fail("Sign-in expired. Please start again.");
+
+        var user = await userManager.FindByIdAsync(challenge.Value.UserId.ToString());
+        if (user is null
+            || !await userManager.GetTwoFactorEnabledAsync(user)
+            || await userManager.GetSecurityStampAsync(user) != challenge.Value.SecurityStamp)
+            return LoginResult.Fail("Sign-in expired. Please start again.");
+
+        if (await userManager.IsLockedOutAsync(user)) return LoginResult.Fail("Account locked. Try again later.");
+
+        var verified = isRecoveryCode
+            ? await RedeemRecoveryCodeAsync(user, code)
+            : await userManager.VerifyTwoFactorTokenAsync(user,
+                userManager.Options.Tokens.AuthenticatorTokenProvider, NormalizeTotp(code));
+
+        if (!verified)
+        {
+            await userManager.AccessFailedAsync(user);
+            return LoginResult.Fail("Invalid verification code.");
+        }
+
+        await userManager.ResetAccessFailedCountAsync(user);
+        return await IssueSessionAsync(user, ct);
+    }
+
+    public async Task<LoginResult> ReissueAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+                   ?? throw new InvalidOperationException($"User {userId} not found.");
+
+        var now = DateTime.UtcNow;
+        foreach (var active in await refreshTokens.GetActiveByUserAsync(userId, ct))
+            active.Revoke(now);
+
+        return await IssueSessionAsync(user, ct);
     }
 
     public async Task<LoginResult> RefreshAsync(string refreshToken, CancellationToken ct)
@@ -76,6 +118,28 @@ internal sealed class AuthenticationService(
             await refreshTokens.SaveChangesAsync(ct);
         }
     }
+
+    private async Task<LoginResult> IssueSessionAsync(AppUser user, CancellationToken ct)
+    {
+        var roles = await userManager.GetRolesAsync(user);
+        var (token, expiresAt) = tokenService.CreateToken(user, roles);
+        var refresh = AddRefreshToken(user, DateTime.UtcNow);
+        await refreshTokens.SaveChangesAsync(ct);
+        return LoginResult.Success(token, expiresAt, refresh);
+    }
+
+    // Codes look like "XXXXX-XXXXX" (the dash is part of the stored code). A failed redeem doesn't
+    // consume anything, so also try the upper-cased input in case it was typed in lower case.
+    private async Task<bool> RedeemRecoveryCodeAsync(AppUser user, string code)
+    {
+        var trimmed = code.Trim();
+        if ((await userManager.RedeemTwoFactorRecoveryCodeAsync(user, trimmed)).Succeeded) return true;
+        var upper = trimmed.ToUpperInvariant();
+        return upper != trimmed && (await userManager.RedeemTwoFactorRecoveryCodeAsync(user, upper)).Succeeded;
+    }
+
+    // Authenticator apps often show "123 456"; accept that and "123-456".
+    internal static string NormalizeTotp(string code) => code.Replace(" ", "").Replace("-", "");
 
     private string AddRefreshToken(AppUser user, DateTime now)
     {

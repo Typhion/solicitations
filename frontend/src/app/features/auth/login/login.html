@@ -1,21 +1,110 @@
-<form class="login-form" [formGroup]="form" (ngSubmit)="submit()">
-  <h1>Sign in</h1>
+<div class="flex justify-center pt-16">
+    @if (!challengeToken()) {
+        <form
+            class="border-border bg-surface flex w-full max-w-sm flex-col gap-5 rounded-lg border p-6"
+            [formGroup]="form"
+            (ngSubmit)="submit()"
+        >
+            <div>
+                <h1 class="text-foreground text-lg font-semibold tracking-tight">Sign in</h1>
+                <p class="text-muted mt-1 text-sm">Use your account to continue.</p>
+            </div>
 
-  <label>
-    <span>Username</span>
-    <input type="text" formControlName="username" autocomplete="username" />
-  </label>
+            <label class="flex flex-col gap-1.5">
+                <span class="text-foreground text-sm font-medium">Username</span>
+                <input appInput type="text" formControlName="username" autocomplete="username" />
+            </label>
 
-  <label>
-    <span>Password</span>
-    <input type="password" formControlName="password" autocomplete="current-password" />
-  </label>
+            <label class="flex flex-col gap-1.5">
+                <span class="text-foreground text-sm font-medium">Password</span>
+                <input
+                    appInput
+                    type="password"
+                    formControlName="password"
+                    autocomplete="current-password"
+                />
+            </label>
 
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
-  }
+            @if (error()) {
+                <p class="text-danger text-sm" role="alert">{{ error() }}</p>
+            }
 
-  <button type="submit" [disabled]="submitting()">
-    {{ submitting() ? 'Signing in…' : 'Sign in' }}
-  </button>
-</form>
+            <button appButton type="submit" class="w-full" [disabled]="submitting()">
+                {{ submitting() ? 'Signing in…' : 'Sign in' }}
+            </button>
+        </form>
+    } @else {
+        <form
+            class="border-border bg-surface flex w-full max-w-sm flex-col gap-5 rounded-lg border p-6"
+            [formGroup]="codeForm"
+            (ngSubmit)="submitCode()"
+        >
+            <div>
+                <h1 class="text-foreground text-lg font-semibold tracking-tight">
+                    Two-factor authentication
+                </h1>
+                <p class="text-muted mt-1 text-sm">
+                    @if (useRecoveryCode()) {
+                        Enter one of the recovery codes you saved when you set up two-factor
+                        authentication.
+                    } @else {
+                        Enter the 6-digit code from your authenticator app.
+                    }
+                </p>
+            </div>
+
+            <label class="flex flex-col gap-1.5">
+                <span class="text-foreground text-sm font-medium">
+                    {{ useRecoveryCode() ? 'Recovery code' : 'Authentication code' }}
+                </span>
+                @if (useRecoveryCode()) {
+                    <input
+                        appInput
+                        type="text"
+                        formControlName="code"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="XXXXX-XXXXX"
+                        class="font-mono"
+                    />
+                } @else {
+                    <input
+                        appInput
+                        type="text"
+                        formControlName="code"
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
+                        maxlength="7"
+                        placeholder="123456"
+                        class="font-mono tracking-widest"
+                    />
+                }
+            </label>
+
+            @if (error()) {
+                <p class="text-danger text-sm" role="alert">{{ error() }}</p>
+            }
+
+            <button appButton type="submit" class="w-full" [disabled]="submitting()">
+                {{ submitting() ? 'Verifying…' : 'Verify' }}
+            </button>
+
+            <div class="flex items-center justify-between text-sm">
+                <button
+                    type="button"
+                    class="text-muted hover:text-foreground cursor-pointer"
+                    (click)="restart()"
+                >
+                    Back
+                </button>
+                <button
+                    type="button"
+                    class="text-accent cursor-pointer hover:underline"
+                    (click)="toggleRecoveryCode()"
+                >
+                    {{ useRecoveryCode() ? 'Use authenticator app' : 'Use a recovery code' }}
+                </button>
+            </div>
+        </form>
+    }
+</div>

@@ -60,6 +60,17 @@ public sealed class SolicitationService(ISolicitationRepository repository, ICur
         return solicitation.ToResponse();
     }
 
+    public async Task UpdateMeetingAsync(Guid id, Guid meetingId, UpdateMeetingRequest req, CancellationToken ct)
+    {
+        var solicitation = await repository.GetByIdAsync(id, currentUser.Id, ct) ?? throw new NotFoundException(nameof(Solicitation), id);
+
+        if (solicitation.Meetings.All(m => m.Id != meetingId))
+            throw new NotFoundException("Meeting", meetingId);
+
+        solicitation.UpdateMeeting(meetingId, req.ScheduledAtUtc, req.Type, req.IsOnline, req.OnlineTool);
+        await repository.SaveChangesAsync(ct);
+    }
+
     public async Task RemoveMeetingAsync(Guid id, Guid meetingId, CancellationToken ct)
     {
         var solicitation = await repository.GetByIdAsync(id, currentUser.Id, ct) ?? throw new NotFoundException(nameof(Solicitation), id);

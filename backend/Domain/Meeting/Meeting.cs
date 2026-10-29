@@ -8,6 +8,16 @@ public class Meeting : Entity
 
     public Meeting(DateTime scheduledAtUtc, MeetingType type, bool isOnline, string? onlineTool)
     {
+        Update(scheduledAtUtc, type, isOnline, onlineTool);
+    }
+
+    public DateTime ScheduledAtUtc { get; private set; }
+    public MeetingType Type { get; private set; }
+    public bool IsOnline { get; private set; }
+    public string? OnlineTool { get; private set; }
+
+    public void Update(DateTime scheduledAtUtc, MeetingType type, bool isOnline, string? onlineTool)
+    {
         if (isOnline) ArgumentException.ThrowIfNullOrWhiteSpace(onlineTool);
 
         ScheduledAtUtc = scheduledAtUtc;
@@ -15,9 +25,4 @@ public class Meeting : Entity
         IsOnline = isOnline;
         OnlineTool = isOnline ? onlineTool : null;
     }
-
-    public DateTime ScheduledAtUtc { get; private set; }
-    public MeetingType Type { get; private set; }
-    public bool IsOnline { get; private set; }
-    public string? OnlineTool { get; private set; }
 }

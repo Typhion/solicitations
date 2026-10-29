@@ -14,6 +14,7 @@ public static class Startup
         app.MapSolicitationEndpoints(versionSet);
         app.MapInviteEndpoints(versionSet);
         app.MapUserEndpoints(versionSet);
+        app.MapAccountEndpoints(versionSet);
 
         app.MapGet("/", () => "ok");
         app.MapGet("/api/me", (ClaimsPrincipal user) => user.Identity!.Name).RequireAuthorization();

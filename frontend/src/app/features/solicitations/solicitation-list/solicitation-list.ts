@@ -1,24 +1,47 @@
-import {Component, inject, signal} from '@angular/core';
-import {SolicitationService} from '../solicitation.service';
-import {PagedResult} from '../../../core/models/paged-result';
-import {Solicitation} from '../solicitation.models';
+import { Component, computed, inject, signal } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
+import { Button } from '../../../shared/ui/button/button';
+import { SolicitationService } from '../solicitation.service';
+import { StatusBadge } from '../status-badge/status-badge';
+
+const PAGE_SIZE = 20;
 
 @Component({
-    selector: 'solicitations',
-    imports: [],
-    template: '@if (result(); as r) {\n' +
-        '    @for (s of r.items; track s.id) {\n' +
-        '      <article>{{ s.jobName }} — status {{ s.status }}</article>\n' +
-        '    } @empty {\n' +
-        '      <p>No solicitations yet.</p>\n' +
-        '    } \n' +
-        '  }',
+    selector: 'app-solicitation-list',
+    imports: [Button, StatusBadge, RouterLink],
+    templateUrl: './solicitation-list.html',
 })
 export class SolicitationList {
     private readonly service = inject(SolicitationService);
-    readonly result = signal<PagedResult<Solicitation> | null>(null);
 
-    ngOnInit() {
-        this.service.list().subscribe(r => this.result.set(r));
+    readonly page = signal(1);
+
+    readonly solicitations = rxResource({
+        params: () => ({ page: this.page() }),
+        stream: ({ params }) => this.service.list(params.page, PAGE_SIZE),
+    });
+
+    // Range shown in the footer, e.g. "21–40 of 53".
+    readonly range = computed(() => {
+        // value() throws while the resource is in an error state, so check hasValue() first.
+        if (!this.solicitations.hasValue()) return null;
+        const r = this.solicitations.value();
+        if (r.totalCount === 0) return null;
+        const from = (r.page - 1) * r.pageSize + 1;
+        return { from, to: from + r.items.length - 1, total: r.totalCount };
+    });
+
+    previous(): void {
+        this.page.update((p) => Math.max(1, p - 1));
+    }
+
+    next(): void {
+        this.page.update((p) => p + 1);
+    }
+
+    // The API only checks the link is non-empty, so it may lack a scheme.
+    href(link: string): string {
+        return /^https?:\/\//i.test(link) ? link : `https://${link}`;
     }
 }

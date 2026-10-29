@@ -1,0 +1,75 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="flex flex-col gap-4 p-5">
+        <h2 class="text-foreground text-base font-semibold">
+            {{ data.meeting ? 'Edit meeting' : 'Add meeting' }}
+        </h2>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+            <app-field label="Date & time" [control]="form.controls.scheduledAt">
+                <input appInput type="datetime-local" formControlName="scheduledAt" />
+            </app-field>
+            <app-field label="Type" [control]="form.controls.type">
+                <select appInput formControlName="type">
+                    @for (option of typeOptions; track option.value) {
+                        <option [ngValue]="option.value">{{ option.label }}</option>
+                    }
+                </select>
+            </app-field>
+        </div>
+
+        <fieldset class="flex flex-col gap-1.5">
+            <legend class="text-foreground mb-1.5 text-sm font-medium">Where</legend>
+            <div class="border-input bg-background grid grid-cols-2 gap-1 rounded-md border p-1">
+                <label
+                    class="text-muted has-checked:bg-surface has-checked:text-foreground has-focus-visible:ring-ring/40 flex h-7 cursor-pointer items-center justify-center rounded text-sm font-medium transition-colors has-checked:shadow-sm has-focus-visible:ring-2"
+                >
+                    <input
+                        class="sr-only"
+                        type="radio"
+                        formControlName="isOnline"
+                        [value]="false"
+                    />
+                    In person
+                </label>
+                <label
+                    class="text-muted has-checked:bg-surface has-checked:text-foreground has-focus-visible:ring-ring/40 flex h-7 cursor-pointer items-center justify-center rounded text-sm font-medium transition-colors has-checked:shadow-sm has-focus-visible:ring-2"
+                >
+                    <input class="sr-only" type="radio" formControlName="isOnline" [value]="true" />
+                    Online
+                </label>
+            </div>
+        </fieldset>
+
+        @if (form.controls.isOnline.value) {
+            <app-field label="Online tool" [control]="form.controls.onlineTool">
+                <input
+                    appInput
+                    type="text"
+                    placeholder="Teams, Zoom, Google Meet…"
+                    formControlName="onlineTool"
+                />
+            </app-field>
+        }
+
+        @if (errors().length) {
+            <ul class="text-danger text-sm" role="alert">
+                @for (e of errors(); track $index) {
+                    <li>{{ e }}</li>
+                }
+            </ul>
+        }
+    </div>
+
+    <footer class="border-border flex justify-end gap-2 border-t px-5 py-3">
+        <button appButton type="button" variant="secondary" (click)="ref.close(false)">
+            Cancel
+        </button>
+        <button appButton type="submit" [disabled]="saving()">
+            @if (saving()) {
+                Saving…
+            } @else {
+                {{ data.meeting ? 'Save changes' : 'Add meeting' }}
+            }
+        </button>
+    </footer>
+</form>

@@ -11,3 +11,12 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
         RuleFor(x => x.Password).NotEmpty();
     }
 }
+
+public sealed class TwoFactorLoginRequestValidator : AbstractValidator<TwoFactorLoginRequest>
+{
+    public TwoFactorLoginRequestValidator()
+    {
+        RuleFor(x => x.ChallengeToken).NotEmpty().MaximumLength(2048);
+        RuleFor(x => x.Code).NotEmpty().MaximumLength(32);
+    }
+}

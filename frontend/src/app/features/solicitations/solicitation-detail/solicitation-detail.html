@@ -1,0 +1,277 @@
+<div class="flex flex-col gap-6">
+    <a
+        routerLink="/solicitations"
+        class="text-muted hover:text-foreground inline-flex items-center gap-1 self-start text-sm"
+    >
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        >
+            <path d="m15 18-6-6 6-6" />
+        </svg>
+        Solicitations
+    </a>
+
+    @if (solicitation.error()) {
+        <div class="border-border bg-surface rounded-lg border px-6 py-12 text-center">
+            <p class="text-danger text-sm">Could not load this solicitation.</p>
+            <button
+                appButton
+                variant="secondary"
+                size="sm"
+                class="mt-3"
+                (click)="solicitation.reload()"
+            >
+                Retry
+            </button>
+        </div>
+    } @else if (solicitation.hasValue()) {
+        @let s = solicitation.value();
+
+        <header class="flex flex-wrap items-start justify-between gap-4">
+            <div class="flex flex-col gap-2">
+                <h1 class="text-foreground text-xl font-semibold tracking-tight">
+                    {{ s.jobName }}
+                </h1>
+                <app-status-badge [status]="s.status" />
+            </div>
+            <div class="flex gap-2">
+                <a appButton variant="secondary" [routerLink]="['/solicitations', s.id, 'edit']">
+                    Edit
+                </a>
+                <button appButton variant="danger" (click)="removeSolicitation()">Delete</button>
+            </div>
+        </header>
+
+        @if (actionError()) {
+            <p
+                class="border-danger/30 bg-danger/10 text-danger rounded-md border px-3 py-2 text-sm"
+                role="alert"
+            >
+                {{ actionError() }}
+            </p>
+        }
+
+        <dl
+            class="border-border bg-surface divide-border grid divide-y rounded-lg border sm:grid-cols-3 sm:divide-x sm:divide-y-0"
+        >
+            <div class="p-4">
+                <dt class="text-muted text-xs font-medium tracking-wide uppercase">Company</dt>
+                <dd class="mt-1.5 text-sm">
+                    <a
+                        class="text-foreground hover:text-accent underline-offset-2 hover:underline"
+                        [href]="href(s.website.link)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {{ s.website.name }}
+                    </a>
+                    <div class="text-muted mt-0.5 truncate text-xs">{{ s.website.link }}</div>
+                </dd>
+            </div>
+            <div class="p-4">
+                <dt class="text-muted text-xs font-medium tracking-wide uppercase">Contact</dt>
+                <dd class="mt-1.5 text-sm">
+                    <div class="text-foreground">{{ s.contact.name }}</div>
+                    <div class="text-muted mt-0.5 flex flex-col text-xs">
+                        <a class="hover:text-foreground" [href]="'mailto:' + s.contact.email">
+                            {{ s.contact.email }}
+                        </a>
+                        <a class="hover:text-foreground" [href]="'tel:' + s.contact.phoneNumber">
+                            {{ s.contact.phoneNumber }}
+                        </a>
+                    </div>
+                </dd>
+            </div>
+            <div class="p-4">
+                <dt class="text-muted text-xs font-medium tracking-wide uppercase">Location</dt>
+                <dd class="mt-1.5 text-sm">
+                    <div class="text-foreground">
+                        {{ s.location.city }}, {{ s.location.country }}
+                    </div>
+                    <div class="text-muted mt-0.5 text-xs">
+                        {{ s.location.street }} {{ s.location.streetNumber }},
+                        {{ s.location.zipCode }}
+                    </div>
+                </dd>
+            </div>
+        </dl>
+
+        <section class="flex flex-col gap-3">
+            <div class="flex items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-foreground text-base font-semibold">Meetings</h2>
+                    <p class="text-muted mt-0.5 text-sm">
+                        @if (meetings().length) {
+                            {{ meetings().length }} total · {{ upcomingCount() }} upcoming
+                        } @else {
+                            Interviews and calls for this application.
+                        }
+                    </p>
+                </div>
+                <button appButton size="sm" (click)="openMeeting()">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Add meeting
+                </button>
+            </div>
+
+            <div class="border-border bg-surface overflow-hidden rounded-lg border">
+                @if (meetings().length === 0) {
+                    <div class="px-6 py-10 text-center">
+                        <p class="text-foreground text-sm font-medium">No meetings yet.</p>
+                        <p class="text-muted mt-1 text-sm">
+                            Add a meeting when an interview or call gets scheduled.
+                        </p>
+                    </div>
+                } @else {
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="text-muted text-xs font-medium tracking-wide uppercase">
+                                    <th scope="col" class="px-4 py-2.5 font-medium">When</th>
+                                    <th scope="col" class="px-4 py-2.5 font-medium">Type</th>
+                                    <th scope="col" class="px-4 py-2.5 font-medium">Where</th>
+                                    <th scope="col" class="w-0 px-2 py-2.5">
+                                        <span class="sr-only">Actions</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody [class.opacity-60]="solicitation.isLoading()">
+                                @for (m of meetings(); track m.id) {
+                                    <tr
+                                        class="border-border hover:bg-surface-hover border-t transition-colors"
+                                        [class.text-muted]="m.past"
+                                    >
+                                        <td class="px-4 py-3">
+                                            <div
+                                                class="font-medium"
+                                                [class.text-foreground]="!m.past"
+                                            >
+                                                {{ m.at | date: 'EEE d MMM y' }}
+                                            </div>
+                                            <div class="text-muted mt-0.5 text-xs">
+                                                {{ m.at | date: 'HH:mm' }}
+                                                @if (m.past) {
+                                                    · Past
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3" [class.text-foreground]="!m.past">
+                                            {{ typeLabels[m.type] }}
+                                        </td>
+                                        <td class="px-4 py-3" [class.text-foreground]="!m.past">
+                                            @if (m.isOnline) {
+                                                Online
+                                                <span class="text-muted">· {{ m.onlineTool }}</span>
+                                            } @else {
+                                                In person
+                                            }
+                                        </td>
+                                        <td class="px-2 py-2">
+                                            <button
+                                                appButton
+                                                variant="ghost"
+                                                size="icon"
+                                                [cdkMenuTriggerFor]="meetingMenu"
+                                                [disabled]="busyMeetingId() === m.id"
+                                                [attr.aria-label]="
+                                                    'Actions for ' + typeLabels[m.type]
+                                                "
+                                            >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="16"
+                                                    height="16"
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                >
+                                                    <circle cx="5" cy="12" r="1.75" />
+                                                    <circle cx="12" cy="12" r="1.75" />
+                                                    <circle cx="19" cy="12" r="1.75" />
+                                                </svg>
+                                            </button>
+                                            <ng-template #meetingMenu>
+                                                <div appMenu>
+                                                    <button
+                                                        appMenuItem
+                                                        (triggered)="openMeeting(m)"
+                                                    >
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            stroke-width="2"
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                        >
+                                                            <path d="M12 20h9" />
+                                                            <path
+                                                                d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"
+                                                            />
+                                                        </svg>
+                                                        Edit
+                                                    </button>
+                                                    <div appMenuSeparator></div>
+                                                    <button
+                                                        appMenuItem
+                                                        class="text-danger!"
+                                                        (triggered)="removeMeeting(m)"
+                                                    >
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            stroke-width="2"
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                        >
+                                                            <path
+                                                                d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"
+                                                            />
+                                                        </svg>
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </ng-template>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    } @else {
+        <div class="flex flex-col gap-4" aria-busy="true" aria-label="Loading solicitation">
+            <div class="bg-surface-hover h-7 w-1/3 animate-pulse rounded"></div>
+            <div class="bg-surface-hover h-24 animate-pulse rounded-lg"></div>
+            <div class="bg-surface-hover h-40 animate-pulse rounded-lg"></div>
+        </div>
+    }
+</div>

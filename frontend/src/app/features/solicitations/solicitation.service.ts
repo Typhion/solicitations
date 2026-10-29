@@ -8,6 +8,7 @@ import {
     CreateSolicitationRequest,
     UpdateSolicitationRequest,
     AddMeetingRequest,
+    UpdateMeetingRequest,
 } from './solicitation.models';
 
 @Injectable({ providedIn: 'root' })
@@ -17,9 +18,7 @@ export class SolicitationService {
 
     // GET /api/solicitations?page=&pageSize=
     list(page = 1, pageSize = 20): Observable<PagedResult<Solicitation>> {
-        const params = new HttpParams()
-            .set('page', page)
-            .set('pageSize', pageSize);
+        const params = new HttpParams().set('page', page).set('pageSize', pageSize);
         return this.http.get<PagedResult<Solicitation>>(this.baseUrl, { params });
     }
 
@@ -46,6 +45,11 @@ export class SolicitationService {
     // POST /api/solicitations/{id}/meetings → 200 with updated Solicitation
     addMeeting(id: string, body: AddMeetingRequest): Observable<Solicitation> {
         return this.http.post<Solicitation>(`${this.baseUrl}/${id}/meetings`, body);
+    }
+
+    // PUT /api/solicitations/{id}/meetings/{meetingId} → 204
+    updateMeeting(id: string, meetingId: string, body: UpdateMeetingRequest): Observable<void> {
+        return this.http.put<void>(`${this.baseUrl}/${id}/meetings/${meetingId}`, body);
     }
 
     // DELETE /api/solicitations/{id}/meetings/{meetingId} → 204

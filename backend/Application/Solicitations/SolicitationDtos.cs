@@ -11,6 +11,8 @@ public sealed record SolicitationResponse(Guid Id, string JobName, SolicitationS
 
 public sealed record AddMeetingRequest(DateTime ScheduledAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
 
+public sealed record UpdateMeetingRequest(DateTime ScheduledAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
+
 public sealed record MeetingDto(Guid Id, DateTime ScheduledAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
 
 public sealed record LocationDto(string Country, string City, string ZipCode, string Street, string StreetNumber);

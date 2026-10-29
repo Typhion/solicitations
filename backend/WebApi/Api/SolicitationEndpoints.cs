@@ -46,6 +46,13 @@ public static class SolicitationEndpoints
             })
             .AddEndpointFilter<ValidationFilter<AddMeetingRequest>>();
 
+        group.MapPut("/{id:guid}/meetings/{meetingId:guid}", async (Guid id, Guid meetingId, UpdateMeetingRequest body, SolicitationService service, CancellationToken ct) =>
+            {
+                await service.UpdateMeetingAsync(id, meetingId, body, ct);
+                return Results.NoContent();
+            })
+            .AddEndpointFilter<ValidationFilter<UpdateMeetingRequest>>();
+
         group.MapDelete("/{id:guid}/meetings/{meetingId:guid}", async (Guid id, Guid meetingId, SolicitationService service, CancellationToken ct) =>
         {
             await service.RemoveMeetingAsync(id, meetingId, ct);

@@ -29,5 +29,19 @@ public class LoginResultTests
         result.ExpiresAt.Should().BeNull();
         result.RefreshToken.Should().BeNull();
         result.Error.Should().Be("Invalid username or password.");
+        result.RequiresTwoFactor.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TwoFactorRequired_CarriesChallenge_AndNoSession()
+    {
+        var result = LoginResult.TwoFactorRequired("challenge");
+
+        result.RequiresTwoFactor.Should().BeTrue();
+        result.ChallengeToken.Should().Be("challenge");
+        // not a successful sign-in yet: no tokens are issued
+        result.Succeeded.Should().BeFalse();
+        result.Token.Should().BeNull();
+        result.RefreshToken.Should().BeNull();
     }
 }

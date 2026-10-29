@@ -12,3 +12,13 @@ public sealed class AddMeetingRequestValidator : AbstractValidator<AddMeetingReq
             RuleFor(x => x.OnlineTool).NotEmpty().MaximumLength(100));
     }
 }
+
+public sealed class UpdateMeetingRequestValidator : AbstractValidator<UpdateMeetingRequest>
+{
+    public UpdateMeetingRequestValidator()
+    {
+        RuleFor(x => x.Type).IsInEnum();
+        When(x => x.IsOnline, () =>
+            RuleFor(x => x.OnlineTool).NotEmpty().MaximumLength(100));
+    }
+}

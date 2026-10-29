@@ -1,6 +1,7 @@
 using Application.Common;
 using Application.Common.Exceptions;
 using Application.Solicitations;
+using Domain.Meeting;
 using Domain.Solicitation;
 using FluentAssertions;
 using NSubstitute;
@@ -166,7 +167,73 @@ public class SolicitationServiceTests
         await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    // ---------- Update meeting ----------
+
+    [Fact]
+    public async Task UpdateMeetingAsync_WhenFound_MutatesMeetingInPlace_AndSaves()
+    {
+        var solicitation = NewSolicitation();
+        var meeting = solicitation.AddMeeting(new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc),
+            MeetingType.PhoneScreen, isOnline: false, onlineTool: null);
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
+
+        var scheduledAt = new DateTime(2026, 11, 5, 14, 30, 0, DateTimeKind.Utc);
+        var request = new UpdateMeetingRequest(scheduledAt, MeetingType.TechnicalInterview, IsOnline: true, OnlineTool: "Teams");
+
+        await _sut.UpdateMeetingAsync(solicitation.Id, meeting.Id, request, CancellationToken.None);
+
+        // same meeting instance (id preserved), updated in place
+        solicitation.Meetings.Should().ContainSingle().Which.Should().BeSameAs(meeting);
+        meeting.ScheduledAtUtc.Should().Be(scheduledAt);
+        meeting.Type.Should().Be(MeetingType.TechnicalInterview);
+        meeting.IsOnline.Should().BeTrue();
+        meeting.OnlineTool.Should().Be("Teams");
+        await _repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateMeetingAsync_WhenSwitchedToInPerson_ClearsOnlineTool()
+    {
+        var solicitation = NewSolicitation();
+        var meeting = solicitation.AddMeeting(DateTime.UtcNow, MeetingType.PhoneScreen, isOnline: true, onlineTool: "Zoom");
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
+
+        var request = new UpdateMeetingRequest(DateTime.UtcNow, MeetingType.OnSite, IsOnline: false, OnlineTool: "Zoom");
+
+        await _sut.UpdateMeetingAsync(solicitation.Id, meeting.Id, request, CancellationToken.None);
+
+        meeting.IsOnline.Should().BeFalse();
+        meeting.OnlineTool.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateMeetingAsync_WhenMeetingNotOnSolicitation_ThrowsNotFound_AndDoesNotSave()
+    {
+        var solicitation = NewSolicitation();
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
+
+        var act = () => _sut.UpdateMeetingAsync(solicitation.Id, Guid.NewGuid(), NewUpdateMeetingRequest(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateMeetingAsync_WhenSolicitationMissingOrNotOwned_ThrowsNotFound_AndDoesNotSave()
+    {
+        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Solicitation?)null);
+
+        var act = () => _sut.UpdateMeetingAsync(Guid.NewGuid(), Guid.NewGuid(), NewUpdateMeetingRequest(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     // ---------- Builders ----------
+
+    private static UpdateMeetingRequest NewUpdateMeetingRequest() =>
+        new(DateTime.UtcNow, MeetingType.PhoneScreen, IsOnline: false, OnlineTool: null);
+
 
     private static CreateSolicitationRequest NewCreateRequest(string jobName = "Developer") => new(
         jobName,

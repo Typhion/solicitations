@@ -46,6 +46,13 @@ public class Solicitation : Entity
         return meeting;
     }
 
+    public void UpdateMeeting(Guid meetingId, DateTime scheduledAtUtc, Meeting.MeetingType type, bool isOnline, string? onlineTool)
+    {
+        var meeting = _meetings.FirstOrDefault(m => m.Id == meetingId)
+            ?? throw new DomainException("Meeting not found on this solicitation.");
+        meeting.Update(scheduledAtUtc, type, isOnline, onlineTool);
+    }
+
     public void RemoveMeeting(Guid meetingId)
     {
         var meeting = _meetings.FirstOrDefault(m => m.Id == meetingId)

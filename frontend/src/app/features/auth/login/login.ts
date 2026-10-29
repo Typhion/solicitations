@@ -2,53 +2,118 @@ import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { isTwoFactorChallenge } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
+import { Button } from '../../../shared/ui/button/button';
+import { Input } from '../../../shared/ui/input/input';
 
 @Component({
-  selector: 'app-login',
-  imports: [ReactiveFormsModule],
-  templateUrl: './login.html',
-  styleUrl: './login.css',
+    selector: 'app-login',
+    imports: [ReactiveFormsModule, Input, Button],
+    templateUrl: './login.html',
 })
 export class Login {
-  private readonly fb = inject(FormBuilder);
-  private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
+    private readonly fb = inject(FormBuilder);
+    private readonly auth = inject(AuthService);
+    private readonly router = inject(Router);
+    private readonly route = inject(ActivatedRoute);
 
-  // UI state, held in signals.
-  readonly error = signal<string | null>(null);
-  readonly submitting = signal(false);
+    // UI state, held in signals.
+    readonly error = signal<string | null>(null);
+    readonly submitting = signal(false);
 
-  // Reactive form. nonNullable so the values are typed as string (not string|null).
-  readonly form = this.fb.nonNullable.group({
-    username: ['', Validators.required],
-    password: ['', Validators.required],
-  });
+    /** Set after a correct password when the account has 2FA on → shows the code step. */
+    readonly challengeToken = signal<string | null>(null);
+    readonly useRecoveryCode = signal(false);
 
-  submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
+    // Reactive form. nonNullable so the values are typed as string (not string|null).
+    readonly form = this.fb.nonNullable.group({
+        username: ['', Validators.required],
+        password: ['', Validators.required],
+    });
+
+    readonly codeForm = this.fb.nonNullable.group({
+        code: ['', Validators.required],
+    });
+
+    submit(): void {
+        if (this.form.invalid) {
+            this.form.markAllAsTouched();
+            return;
+        }
+
+        this.submitting.set(true);
+        this.error.set(null);
+
+        this.auth.login(this.form.getRawValue()).subscribe({
+            next: (res) => {
+                if (isTwoFactorChallenge(res)) {
+                    this.challengeToken.set(res.challengeToken);
+                    this.submitting.set(false);
+                } else {
+                    this.done();
+                }
+            },
+            error: (err: HttpErrorResponse) => {
+                // 401 = genuinely bad credentials; anything else is a network/server/CORS problem.
+                this.error.set(
+                    err.status === 401
+                        ? 'Invalid username or password.'
+                        : 'Something went wrong. Please try again.',
+                );
+                this.submitting.set(false);
+            },
+        });
     }
 
-    this.submitting.set(true);
-    this.error.set(null);
+    submitCode(): void {
+        const challengeToken = this.challengeToken();
+        if (!challengeToken) return;
+        if (this.codeForm.invalid) {
+            this.codeForm.markAllAsTouched();
+            return;
+        }
 
-    this.auth.login(this.form.getRawValue()).subscribe({
-      next: () => {
+        this.submitting.set(true);
+        this.error.set(null);
+
+        this.auth
+            .loginWithTwoFactor({
+                challengeToken,
+                code: this.codeForm.getRawValue().code,
+                useRecoveryCode: this.useRecoveryCode(),
+            })
+            .subscribe({
+                next: () => this.done(),
+                error: (err: HttpErrorResponse) => {
+                    // The API explains 401s (wrong code, expired challenge, locked out) in `detail`.
+                    this.error.set(
+                        err.status === 401
+                            ? (err.error?.detail ?? 'Invalid verification code.')
+                            : 'Something went wrong. Please try again.',
+                    );
+                    this.submitting.set(false);
+                },
+            });
+    }
+
+    toggleRecoveryCode(): void {
+        this.useRecoveryCode.update((v) => !v);
+        this.codeForm.reset();
+        this.error.set(null);
+    }
+
+    /** Back to the password step (e.g. the 5-minute challenge expired). */
+    restart(): void {
+        this.challengeToken.set(null);
+        this.useRecoveryCode.set(false);
+        this.codeForm.reset();
+        this.form.controls.password.reset();
+        this.error.set(null);
+    }
+
+    private done(): void {
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/solicitations';
         this.router.navigateByUrl(returnUrl);
-      },
-      error: (err: HttpErrorResponse) => {
-        // 401 = genuinely bad credentials; anything else is a network/server/CORS problem.
-        this.error.set(
-          err.status === 401
-            ? 'Invalid username or password.'
-            : 'Something went wrong. Please try again.',
-        );
-        this.submitting.set(false);
-      },
-    });
-  }
+    }
 }

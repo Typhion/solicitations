@@ -1,0 +1,303 @@
+<div class="mx-auto flex max-w-3xl flex-col gap-6">
+    <header>
+        <h1 class="text-foreground text-xl font-semibold tracking-tight">Profile</h1>
+        <p class="text-muted mt-1 text-sm">Your account, password and sign-in security.</p>
+    </header>
+
+    @if (profile.error()) {
+        <div class="border-border bg-surface rounded-lg border px-6 py-12 text-center">
+            <p class="text-danger text-sm">Could not load your profile.</p>
+            <button appButton variant="secondary" size="sm" class="mt-3" (click)="profile.reload()">
+                Retry
+            </button>
+        </div>
+    } @else if (profile.hasValue()) {
+        @let p = profile.value();
+
+        <div
+            class="border-border bg-surface divide-border flex flex-col divide-y rounded-lg border"
+        >
+            <!-- Account -->
+            <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]">
+                <div>
+                    <h2 class="text-foreground text-sm font-semibold">Account</h2>
+                    <p class="text-muted mt-1 text-xs">Managed by an administrator.</p>
+                </div>
+                <dl class="grid gap-4 text-sm sm:grid-cols-2">
+                    <div>
+                        <dt class="text-muted text-xs font-medium">Username</dt>
+                        <dd class="text-foreground mt-1">{{ p.username }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted text-xs font-medium">Email</dt>
+                        <dd class="text-foreground mt-1">{{ p.email ?? '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-muted text-xs font-medium">Roles</dt>
+                        <dd class="mt-1 flex flex-wrap gap-1.5">
+                            @for (role of p.roles; track role) {
+                                <span appBadge [tone]="role === 'Admin' ? 'accent' : 'neutral'">
+                                    {{ role }}
+                                </span>
+                            }
+                        </dd>
+                    </div>
+                </dl>
+            </section>
+
+            <!-- Password -->
+            <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]">
+                <div>
+                    <h2 class="text-foreground text-sm font-semibold">Password</h2>
+                    <p class="text-muted mt-1 text-xs">
+                        Changing it signs you out on all other devices.
+                    </p>
+                </div>
+                <form
+                    class="flex flex-col gap-4"
+                    [formGroup]="passwordForm"
+                    (ngSubmit)="changePassword()"
+                    novalidate
+                >
+                    <app-field
+                        label="Current password"
+                        [control]="passwordForm.controls.currentPassword"
+                    >
+                        <input
+                            appInput
+                            type="password"
+                            formControlName="currentPassword"
+                            autocomplete="current-password"
+                        />
+                    </app-field>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <app-field
+                            label="New password"
+                            [control]="passwordForm.controls.newPassword"
+                        >
+                            <input
+                                appInput
+                                type="password"
+                                formControlName="newPassword"
+                                autocomplete="new-password"
+                            />
+                        </app-field>
+                        <app-field
+                            label="Confirm new password"
+                            [control]="passwordForm.controls.confirmPassword"
+                        >
+                            <input
+                                appInput
+                                type="password"
+                                formControlName="confirmPassword"
+                                autocomplete="new-password"
+                            />
+                        </app-field>
+                    </div>
+                    <p class="text-muted -mt-1 text-xs">{{ passwordHint }}</p>
+
+                    @if (passwordError()) {
+                        <p class="text-danger text-sm" role="alert">{{ passwordError() }}</p>
+                    }
+                    @if (passwordChanged()) {
+                        <p class="text-success text-sm" role="status">
+                            Password changed. Other sessions were signed out.
+                        </p>
+                    }
+
+                    <div>
+                        <button appButton type="submit" [disabled]="passwordSaving()">
+                            {{ passwordSaving() ? 'Saving…' : 'Change password' }}
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Two-factor authentication -->
+            <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]">
+                <div>
+                    <h2 class="text-foreground text-sm font-semibold">Two-factor authentication</h2>
+                    <p class="text-muted mt-1 text-xs">
+                        A code from an authenticator app on your phone, on top of your password.
+                    </p>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2">
+                        @if (p.twoFactorEnabled) {
+                            <span appBadge tone="success">Enabled</span>
+                        } @else {
+                            <span appBadge>Disabled</span>
+                        }
+                    </div>
+
+                    @if (recoveryCodes(); as codes) {
+                        <!-- Freshly issued recovery codes: shown once -->
+                        <div
+                            class="border-warning/40 bg-warning/10 flex flex-col gap-3 rounded-md border p-4"
+                        >
+                            <div>
+                                <h3 class="text-foreground text-sm font-semibold">
+                                    Save your recovery codes
+                                </h3>
+                                <p class="text-muted mt-1 text-xs">
+                                    If you lose your phone, each code lets you sign in once. They
+                                    won't be shown again.
+                                </p>
+                            </div>
+                            <ul
+                                class="bg-surface border-border text-foreground grid grid-cols-2 gap-x-6 gap-y-1 rounded-md border p-3 font-mono text-sm"
+                            >
+                                @for (c of codes; track c) {
+                                    <li>{{ c }}</li>
+                                }
+                            </ul>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    appButton
+                                    variant="secondary"
+                                    size="sm"
+                                    (click)="copy('codes')"
+                                >
+                                    {{ copied() === 'codes' ? 'Copied' : 'Copy' }}
+                                </button>
+                                <button
+                                    appButton
+                                    variant="secondary"
+                                    size="sm"
+                                    (click)="downloadCodes()"
+                                >
+                                    Download
+                                </button>
+                                <button
+                                    appButton
+                                    size="sm"
+                                    class="ml-auto"
+                                    (click)="dismissCodes()"
+                                >
+                                    I've saved them
+                                </button>
+                            </div>
+                        </div>
+                    } @else if (p.twoFactorEnabled) {
+                        <p class="text-muted text-sm">
+                            Signing in asks for a code from your authenticator app.
+                            <span [class.text-danger]="p.recoveryCodesLeft <= 2">
+                                {{ p.recoveryCodesLeft }}
+                                {{ p.recoveryCodesLeft === 1 ? 'recovery code' : 'recovery codes' }}
+                                left.
+                            </span>
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            <button appButton variant="secondary" (click)="regenerateCodes()">
+                                Generate new recovery codes
+                            </button>
+                            <button appButton variant="danger" (click)="disable()">Disable</button>
+                        </div>
+                    } @else if (setup(); as s) {
+                        <!-- Setup: scan, then verify the first code -->
+                        <ol class="flex flex-col gap-4 text-sm">
+                            <li class="flex flex-col gap-3">
+                                <p class="text-foreground">
+                                    <span class="font-medium">1.</span> Scan this QR code with
+                                    Google Authenticator (or any authenticator app).
+                                </p>
+                                <div class="flex flex-wrap items-start gap-4">
+                                    @if (qrDataUrl(); as qr) {
+                                        <img
+                                            [src]="qr"
+                                            width="192"
+                                            height="192"
+                                            alt="QR code for your authenticator app"
+                                            class="border-border rounded-md border bg-white p-2"
+                                        />
+                                    }
+                                    <div class="flex max-w-56 flex-col gap-1.5">
+                                        <span class="text-muted text-xs"
+                                            >Can't scan? Enter this key:</span
+                                        >
+                                        <code
+                                            class="bg-background border-border text-foreground rounded-md border px-2 py-1.5 font-mono text-xs break-all"
+                                        >
+                                            {{ s.sharedKey }}
+                                        </code>
+                                        <button
+                                            appButton
+                                            variant="ghost"
+                                            size="sm"
+                                            class="self-start"
+                                            (click)="copy('key')"
+                                        >
+                                            {{ copied() === 'key' ? 'Copied' : 'Copy key' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </li>
+                            <li>
+                                <form
+                                    class="flex flex-col gap-3"
+                                    [formGroup]="codeForm"
+                                    (ngSubmit)="enable()"
+                                    novalidate
+                                >
+                                    <p class="text-foreground">
+                                        <span class="font-medium">2.</span> Enter the 6-digit code
+                                        the app shows.
+                                    </p>
+                                    <app-field
+                                        class="max-w-48"
+                                        label="Authentication code"
+                                        [control]="codeForm.controls.code"
+                                    >
+                                        <input
+                                            appInput
+                                            type="text"
+                                            inputmode="numeric"
+                                            autocomplete="one-time-code"
+                                            maxlength="7"
+                                            placeholder="123456"
+                                            class="font-mono tracking-widest"
+                                            formControlName="code"
+                                        />
+                                    </app-field>
+                                    <div class="flex gap-2">
+                                        <button
+                                            appButton
+                                            type="button"
+                                            variant="secondary"
+                                            (click)="cancelSetup()"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button appButton type="submit" [disabled]="setupBusy()">
+                                            {{ setupBusy() ? 'Verifying…' : 'Verify and enable' }}
+                                        </button>
+                                    </div>
+                                </form>
+                            </li>
+                        </ol>
+                    } @else {
+                        <p class="text-muted text-sm">
+                            Protect your account if your password ever leaks. You'll need an
+                            authenticator app such as Google Authenticator.
+                        </p>
+                        <div>
+                            <button appButton (click)="startSetup()" [disabled]="setupBusy()">
+                                Set up authenticator app
+                            </button>
+                        </div>
+                    }
+
+                    @if (twoFactorError()) {
+                        <p class="text-danger text-sm" role="alert">{{ twoFactorError() }}</p>
+                    }
+                </div>
+            </section>
+        </div>
+    } @else {
+        <div class="flex flex-col gap-4" aria-busy="true" aria-label="Loading profile">
+            <div class="bg-surface-hover h-32 animate-pulse rounded-lg"></div>
+            <div class="bg-surface-hover h-48 animate-pulse rounded-lg"></div>
+        </div>
+    }
+</div>

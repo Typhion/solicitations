@@ -10,18 +10,19 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     // Don't attach the token to the auth endpoints themselves.
     const isAuthCall = req.url.includes('/auth/');
 
-    const authReq = token && !isAuthCall
-        ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
-        : req;
+    const authReq =
+        token && !isAuthCall
+            ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
+            : req;
 
     return next(authReq).pipe(
         catchError((err: HttpErrorResponse) => {
             if (err.status === 401 && !isAuthCall) {
                 return auth.refresh().pipe(
-                    switchMap(t =>
-                        next(req.clone({ setHeaders: { Authorization: `Bearer ${t.token}` } }))
+                    switchMap((t) =>
+                        next(req.clone({ setHeaders: { Authorization: `Bearer ${t.token}` } })),
                     ),
-                    catchError(refreshErr => {
+                    catchError((refreshErr) => {
                         auth.logout();
                         return throwError(() => refreshErr);
                     }),

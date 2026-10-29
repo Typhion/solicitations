@@ -74,7 +74,97 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         page.TotalCount.Should().Be(0);
     }
 
+    [Fact]
+    public async Task TwoFactor_EnableThenLogin_RequiresAuthenticatorOrRecoveryCode()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+
+        // setup returns a key + otpauth URI for the authenticator app
+        using var setupReq = Authorized(HttpMethod.Post, "/api/account/2fa/setup", token);
+        var setup = await (await _client.SendAsync(setupReq)).Content.ReadFromJsonAsync<SetupDto>();
+        var secret = new Uri(setup!.AuthenticatorUri).Query.TrimStart('?').Split('&')
+            .Single(p => p.StartsWith("secret=")).Substring("secret=".Length);
+
+        // a wrong code does not enable 2FA
+        using var badEnable = Authorized(HttpMethod.Post, "/api/account/2fa/enable", token, new { code = "000000" });
+        (await _client.SendAsync(badEnable)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var enableReq = Authorized(HttpMethod.Post, "/api/account/2fa/enable", token, new { code = Totp.Compute(secret) });
+        var enable = await _client.SendAsync(enableReq);
+        enable.StatusCode.Should().Be(HttpStatusCode.OK);
+        var recoveryCodes = (await enable.Content.ReadFromJsonAsync<RecoveryCodesDto>())!.RecoveryCodes;
+        recoveryCodes.Should().HaveCount(10);
+
+        using var profileReq = Authorized(HttpMethod.Get, "/api/account", token);
+        var profile = await (await _client.SendAsync(profileReq)).Content.ReadFromJsonAsync<ProfileDto>();
+        profile!.TwoFactorEnabled.Should().BeTrue();
+
+        // password alone now only yields a challenge, not a session
+        var login = await (await _client.PostAsJsonAsync("/api/auth/login", new { username, password }))
+            .Content.ReadFromJsonAsync<ChallengeDto>();
+        login!.RequiresTwoFactor.Should().BeTrue();
+
+        // the challenge is not an access token
+        using var challengeAsBearer = Authorized(HttpMethod.Get, "/api/account", login.ChallengeToken);
+        (await _client.SendAsync(challengeAsBearer)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var wrong = await _client.PostAsJsonAsync("/api/auth/login/2fa",
+            new { challengeToken = login.ChallengeToken, code = "000000", useRecoveryCode = false });
+        wrong.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var right = await _client.PostAsJsonAsync("/api/auth/login/2fa",
+            new { challengeToken = login.ChallengeToken, code = Totp.Compute(secret), useRecoveryCode = false });
+        right.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await right.Content.ReadFromJsonAsync<LoginDto>())!.Token.Should().NotBeNullOrWhiteSpace();
+
+        // a recovery code works once (input is case-insensitive)
+        var recovery = new { challengeToken = login.ChallengeToken, code = recoveryCodes[0].ToLowerInvariant(), useRecoveryCode = true };
+        (await _client.PostAsJsonAsync("/api/auth/login/2fa", recovery)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _client.PostAsJsonAsync("/api/auth/login/2fa", recovery)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ChangePassword_RequiresCurrentPassword_AndReplacesIt()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+        const string newPassword = "Changed#Test12345";
+
+        using var wrongReq = Authorized(HttpMethod.Post, "/api/account/password", token,
+            new { currentPassword = "Nope#Test123456", newPassword });
+        (await _client.SendAsync(wrongReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var changeReq = Authorized(HttpMethod.Post, "/api/account/password", token,
+            new { currentPassword = password, newPassword });
+        var change = await _client.SendAsync(changeReq);
+        change.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await change.Content.ReadFromJsonAsync<LoginDto>())!.Token.Should().NotBeNullOrWhiteSpace();
+
+        (await _client.PostAsJsonAsync("/api/auth/login", new { username, password }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await LoginAsync(username, newPassword)).Should().NotBeNullOrWhiteSpace();
+    }
+
     // ---------- helpers ----------
+
+    private async Task<(string Username, string Password)> RegisterNewUserAsync()
+    {
+        var adminToken = await LoginAsync("admin", ApiFactory.AdminPassword);
+        using var inviteReq = Authorized(HttpMethod.Post, "/api/invites", adminToken, new { role = "Member" });
+        var invite = await (await _client.SendAsync(inviteReq)).Content.ReadFromJsonAsync<CreatedInviteDto>();
+
+        var username = $"user-{Guid.NewGuid():N}";
+        const string password = "Member#Test12345";
+        (await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            token = invite!.Token,
+            username,
+            email = $"{username}@example.com",
+            password
+        })).EnsureSuccessStatusCode();
+        return (username, password);
+    }
 
     private async Task<string> LoginAsync(string username, string password)
     {
@@ -104,4 +194,8 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     private sealed record SolicitationDto(Guid Id, string JobName);
     private sealed record CreatedInviteDto(Guid Id, string Token);
     private sealed record PagedDto(List<SolicitationDto> Items, int TotalCount);
+    private sealed record SetupDto(string SharedKey, string AuthenticatorUri);
+    private sealed record RecoveryCodesDto(List<string> RecoveryCodes);
+    private sealed record ProfileDto(string Username, bool TwoFactorEnabled, int RecoveryCodesLeft);
+    private sealed record ChallengeDto(bool RequiresTwoFactor, string ChallengeToken);
 }
