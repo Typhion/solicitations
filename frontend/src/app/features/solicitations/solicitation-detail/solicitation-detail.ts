@@ -9,6 +9,7 @@ import { Button } from '../../../shared/ui/button/button';
 import { ConfirmService } from '../../../shared/ui/dialog/confirm-dialog';
 import { Menu, MenuItem, MenuSeparator } from '../../../shared/ui/menu/menu';
 import { MeetingDialog, MeetingDialogData } from '../meeting-dialog/meeting-dialog';
+import { toDateParam } from '../../calendar/calendar-date';
 import { meetingTypeLabels, parseUtc } from '../meeting-type';
 import { Meeting } from '../solicitation.models';
 import { SolicitationService } from '../solicitation.service';
@@ -61,6 +62,13 @@ export class SolicitationDetail {
     });
 
     readonly upcomingCount = computed(() => this.meetings().filter((m) => !m.past).length);
+
+    // Calendar deep link: filtered to this solicitation, opened on its next (or else latest) meeting.
+    readonly calendarParams = computed(() => {
+        const ms = this.meetings();
+        const focus = ms.find((m) => !m.past) ?? ms.at(-1);
+        return { solicitation: this.id(), ...(focus && { date: toDateParam(focus.at) }) };
+    });
 
     openMeeting(meeting?: Meeting): void {
         this.actionError.set(null);

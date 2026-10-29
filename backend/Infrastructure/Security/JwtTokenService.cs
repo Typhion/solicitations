@@ -20,7 +20,10 @@ internal sealed class JwtTokenService(IOptions<JwtSettings> options) : IJwtToken
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.UniqueName, user.UserName ?? string.Empty),
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            // Checked against the database on every request (see AccessTokenValidator), so
+            // password/role/2FA changes invalidate tokens issued before them.
+            new(SecurityStampClaim, user.SecurityStamp ?? string.Empty)
         };
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
@@ -37,7 +40,7 @@ internal sealed class JwtTokenService(IOptions<JwtSettings> options) : IJwtToken
         return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 
-    private const string SecurityStampClaim = "ss";
+    internal const string SecurityStampClaim = "ss";
     private static readonly TimeSpan ChallengeLifetime = TimeSpan.FromMinutes(5);
 
     // Distinct audience: the JwtBearer handler only accepts _settings.Audience, so a

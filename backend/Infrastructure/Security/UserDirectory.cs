@@ -34,11 +34,22 @@ internal sealed class UserDirectory(
     public async Task<int> CountInRoleAsync(string role, CancellationToken ct)
         => (await userManager.GetUsersInRoleAsync(role)).Count;
 
+    // Identity doesn't rotate the security stamp on role changes; do it so tokens carrying the
+    // old roles are rejected right away (see AccessTokenValidator). The user's next refresh
+    // gets a token with the new roles.
     public async Task AddToRoleAsync(Guid id, string role, CancellationToken ct)
-        => await userManager.AddToRoleAsync(await GetAsync(id), role);
+    {
+        var user = await GetAsync(id);
+        await userManager.AddToRoleAsync(user, role);
+        await userManager.UpdateSecurityStampAsync(user);
+    }
 
     public async Task RemoveFromRoleAsync(Guid id, string role, CancellationToken ct)
-        => await userManager.RemoveFromRoleAsync(await GetAsync(id), role);
+    {
+        var user = await GetAsync(id);
+        await userManager.RemoveFromRoleAsync(user, role);
+        await userManager.UpdateSecurityStampAsync(user);
+    }
 
     public async Task SetLockedAsync(Guid id, bool locked, CancellationToken ct)
     {

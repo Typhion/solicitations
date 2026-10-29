@@ -1,0 +1,64 @@
+@if (groups().length === 0) {
+    <div class="px-6 py-16 text-center">
+        <p class="text-foreground text-sm font-medium">
+            {{ searching() ? 'No meetings match your search.' : 'No meetings this month.' }}
+        </p>
+        <p class="text-muted mt-1 text-sm">
+            {{
+                searching()
+                    ? 'Try a different term or clear the filters.'
+                    : 'Meetings you add to a solicitation show up here.'
+            }}
+        </p>
+    </div>
+} @else {
+    @for (g of groups(); track g.date.getTime()) {
+        <section class="border-border border-t first:border-t-0">
+            <h3
+                class="bg-background/80 text-muted sticky top-0 flex items-center gap-2 px-4 py-2 text-xs font-medium tracking-wide uppercase backdrop-blur"
+            >
+                <span [class.text-accent]="g.isToday">{{ g.date | date: 'EEEE d MMMM' }}</span>
+                @if (g.isToday) {
+                    <span class="text-accent">· Today</span>
+                }
+            </h3>
+            <ul>
+                @for (m of g.meetings; track m.id) {
+                    <li>
+                        <button
+                            type="button"
+                            data-meeting
+                            class="hover:bg-surface-hover focus-visible:bg-surface-hover flex w-full cursor-pointer items-center gap-4 px-4 py-3 text-left transition-colors focus-visible:outline-none"
+                            [class.opacity-60]="m.at < now()"
+                            (click)="open(m, $event)"
+                        >
+                            <span class="text-muted w-12 shrink-0 text-sm tabular-nums">
+                                {{ m.at | date: 'HH:mm' }}
+                            </span>
+                            <span
+                                class="size-2.5 shrink-0 rounded-full"
+                                [class]="dotColor(m.solicitationId)"
+                            ></span>
+                            <span class="min-w-0 flex-1">
+                                <span class="text-foreground block truncate text-sm font-medium">
+                                    {{ typeLabels[m.type] }}
+                                </span>
+                                <span class="text-muted block truncate text-xs">
+                                    {{ m.jobName }} · {{ m.company }}
+                                </span>
+                            </span>
+                            <span class="text-muted hidden w-40 truncate text-sm sm:block">
+                                @if (m.isOnline) {
+                                    Online · {{ m.onlineTool }}
+                                } @else {
+                                    In person · {{ m.city }}
+                                }
+                            </span>
+                            <app-status-badge class="hidden md:block" [status]="m.status" />
+                        </button>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}

@@ -18,6 +18,15 @@
     --danger: #eb5757;
     --warning: #f2c94c;
     --ring: var(--accent);
+    /* Calendar event palette: one stable hue per solicitation. */
+    --cal-1: #5e6ad2;
+    --cal-2: #0e9384;
+    --cal-3: #d97706;
+    --cal-4: #d6457a;
+    --cal-5: #8b5cf6;
+    --cal-6: #2f80d8;
+    --cal-7: #3f9b6b;
+    --cal-8: #e05d3a;
     color-scheme: light;
 }
 
@@ -35,6 +44,14 @@
     --success: #4cb782;
     --danger: #f06a6a;
     --warning: #f2c94c;
+    --cal-1: #7c86e6;
+    --cal-2: #2cc2b0;
+    --cal-3: #f0a43a;
+    --cal-4: #ee6f9d;
+    --cal-5: #a78bfa;
+    --cal-6: #5ca8f0;
+    --cal-7: #5cc28f;
+    --cal-8: #f2805f;
     color-scheme: dark;
 }
 
@@ -53,6 +70,14 @@
     --color-success: var(--success);
     --color-danger: var(--danger);
     --color-warning: var(--warning);
+    --color-cal-1: var(--cal-1);
+    --color-cal-2: var(--cal-2);
+    --color-cal-3: var(--cal-3);
+    --color-cal-4: var(--cal-4);
+    --color-cal-5: var(--cal-5);
+    --color-cal-6: var(--cal-6);
+    --color-cal-7: var(--cal-7);
+    --color-cal-8: var(--cal-8);
 
     --radius-DEFAULT: 6px;
     --shadow-overlay: 0 4px 12px rgb(0 0 0 / 0.12), 0 1px 3px rgb(0 0 0 / 0.08);

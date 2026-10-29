@@ -70,6 +70,8 @@ public static class Startup
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
+                // Lock, delete, role or password changes take effect on the next request.
+                options.Events = new JwtBearerEvents { OnTokenValidated = AccessTokenValidator.ValidateAsync };
             });
 
         services.AddAuthorizationBuilder()

@@ -73,6 +73,10 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var setup = await (await _client.SendAsync(setupReq)).Content.ReadFromJsonAsync<SetupDto>();
         var secret = SecretFrom(setup!.AuthenticatorUri);
 
+        // a new authenticator key rotates the security stamp, so the old token is out of date
+        // (the SPA refreshes transparently; here we just sign in again)
+        token = await LoginAsync(username, password);
+
         // a wrong code does not enable 2FA
         using var badEnable = Authorized(HttpMethod.Post, "/api/account/2fa/enable", token, new { code = "000000" });
         (await _client.SendAsync(badEnable)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -83,9 +87,9 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var recoveryCodes = (await enable.Content.ReadFromJsonAsync<RecoveryCodesDto>())!.RecoveryCodes;
         recoveryCodes.Should().HaveCount(10);
 
-        using var profileReq = Authorized(HttpMethod.Get, "/api/account", token);
-        var profile = await (await _client.SendAsync(profileReq)).Content.ReadFromJsonAsync<ProfileDto>();
-        profile!.TwoFactorEnabled.Should().BeTrue();
+        // enabling 2FA also rotates the stamp: sessions from before it must sign in again
+        using var staleReq = Authorized(HttpMethod.Get, "/api/account", token);
+        (await _client.SendAsync(staleReq)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         // password alone now only yields a challenge, not a session
         var login = await (await _client.PostAsJsonAsync("/api/auth/login", new { username, password }))
@@ -103,7 +107,11 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var right = await _client.PostAsJsonAsync("/api/auth/login/2fa",
             new { challengeToken = login.ChallengeToken, code = Totp.Compute(secret), useRecoveryCode = false });
         right.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await right.Content.ReadFromJsonAsync<LoginDto>())!.Token.Should().NotBeNullOrWhiteSpace();
+        var twoFactorToken = (await right.Content.ReadFromJsonAsync<LoginDto>())!.Token;
+
+        using var profileReq = Authorized(HttpMethod.Get, "/api/account", twoFactorToken);
+        var profile = await (await _client.SendAsync(profileReq)).Content.ReadFromJsonAsync<ProfileDto>();
+        profile!.TwoFactorEnabled.Should().BeTrue();
 
         // a recovery code works once (input is case-insensitive)
         var recovery = new { challengeToken = login.ChallengeToken, code = recoveryCodes[0].ToLowerInvariant(), useRecoveryCode = true };
@@ -223,7 +231,99 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         (await db.Solicitations.CountAsync(s => s.OwnerId == userId)).Should().Be(0);
     }
 
+    [Fact]
+    public async Task LockingAUser_EndsTheirSessionImmediately()
+    {
+        var adminToken = await AdminTokenAsync();
+        var (username, password) = await RegisterNewUserAsync();
+        var userToken = await LoginAsync(username, password);
+        var userId = await UserIdAsync(adminToken, username);
+
+        using var before = Authorized(HttpMethod.Get, "/api/solicitations", userToken);
+        (await _client.SendAsync(before)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var lockReq = Authorized(HttpMethod.Post, $"/api/users/{userId}/lock", adminToken);
+        (await _client.SendAsync(lockReq)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // the still-unexpired access token no longer works
+        using var create = Authorized(HttpMethod.Post, "/api/solicitations", userToken, NewSolicitation("After lock"));
+        (await _client.SendAsync(create)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task RemovingAdminRole_TakesEffectWithoutWaitingForTokenExpiry()
+    {
+        var adminToken = await AdminTokenAsync();
+        var (username, password) = await RegisterNewUserAsync();
+        var userId = await UserIdAsync(adminToken, username);
+        using var promote = Authorized(HttpMethod.Post, $"/api/users/{userId}/roles", adminToken, new { role = "Admin" });
+        (await _client.SendAsync(promote)).EnsureSuccessStatusCode();
+        var promotedToken = await LoginAsync(username, password);
+
+        using var demote = Authorized(HttpMethod.Delete, $"/api/users/{userId}/roles/Admin", adminToken);
+        (await _client.SendAsync(demote)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // the token still says "Admin", but its security stamp is out of date
+        using var list = Authorized(HttpMethod.Get, "/api/users", promotedToken);
+        (await _client.SendAsync(list)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MeetingsCalendar_ReturnsOwnMeetingsInRange_AndHonoursSolicitationFilter()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+        var first = await CreateSolicitationAsync(token, "Calendar A");
+        var second = await CreateSolicitationAsync(token, "Calendar B");
+        await AddMeetingAsync(token, first, new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc));
+        await AddMeetingAsync(token, second, new DateTime(2026, 11, 5, 14, 0, 0, DateTimeKind.Utc));
+        await AddMeetingAsync(token, first, new DateTime(2026, 12, 20, 9, 0, 0, DateTimeKind.Utc)); // out of range
+
+        // another user's meeting in the same range must not leak in
+        var adminToken = await AdminTokenAsync();
+        await AddMeetingAsync(adminToken, await CreateSolicitationAsync(adminToken, "Not yours"),
+            new DateTime(2026, 11, 4, 9, 0, 0, DateTimeKind.Utc));
+
+        const string range = "from=2026-11-01T00:00:00Z&to=2026-12-01T00:00:00Z";
+        using var all = Authorized(HttpMethod.Get, $"/api/meetings?{range}", token);
+        var allRes = await _client.SendAsync(all);
+        allRes.StatusCode.Should().Be(HttpStatusCode.OK, await allRes.Content.ReadAsStringAsync());
+        var meetings = await allRes.Content.ReadFromJsonAsync<List<CalendarMeetingDto>>();
+        meetings!.Select(m => m.JobName).Should().Equal("Calendar A", "Calendar B"); // ordered by time
+
+        using var filtered = Authorized(HttpMethod.Get, $"/api/meetings?{range}&solicitationId={second}", token);
+        var onlySecond = await (await _client.SendAsync(filtered)).Content.ReadFromJsonAsync<List<CalendarMeetingDto>>();
+        onlySecond.Should().ContainSingle().Which.SolicitationId.Should().Be(second);
+    }
+
+    [Theory]
+    [InlineData("from=2026-11-10T00:00:00Z&to=2026-11-01T00:00:00Z")] // inverted
+    [InlineData("from=2026-01-01T00:00:00Z&to=2026-12-31T00:00:00Z")] // too wide
+    public async Task MeetingsCalendar_InvalidRange_ReturnsBadRequest(string query)
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+
+        using var req = Authorized(HttpMethod.Get, $"/api/meetings?{query}", token);
+        (await _client.SendAsync(req)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     // ---------- helpers ----------
+
+    private async Task<Guid> CreateSolicitationAsync(string token, string jobName)
+    {
+        using var req = Authorized(HttpMethod.Post, "/api/solicitations", token, NewSolicitation(jobName));
+        var res = await _client.SendAsync(req);
+        res.EnsureSuccessStatusCode();
+        return (await res.Content.ReadFromJsonAsync<SolicitationDto>())!.Id;
+    }
+
+    private async Task AddMeetingAsync(string token, Guid solicitationId, DateTime scheduledAtUtc)
+    {
+        using var req = Authorized(HttpMethod.Post, $"/api/solicitations/{solicitationId}/meetings", token,
+            new { scheduledAtUtc, type = 2, isOnline = false, onlineTool = (string?)null });
+        (await _client.SendAsync(req)).EnsureSuccessStatusCode();
+    }
 
     private async Task<(string Username, string Password)> RegisterNewUserAsync()
     {
@@ -255,10 +355,11 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
             using var setupReq = Authorized(HttpMethod.Post, "/api/account/2fa/setup", token);
             var setup = await (await _client.SendAsync(setupReq)).Content.ReadFromJsonAsync<SetupDto>();
             var secret = SecretFrom(setup!.AuthenticatorUri);
+            token = await LoginAsync("admin", ApiFactory.AdminPassword); // setup rotated the security stamp
             using var enableReq = Authorized(HttpMethod.Post, "/api/account/2fa/enable", token, new { code = Totp.Compute(secret) });
             (await _client.SendAsync(enableReq)).EnsureSuccessStatusCode();
             factory.AdminTotpSecret = secret;
-            return token;
+            // enabling rotated it again: fall through and sign in with the second factor
         }
 
         var login = await (await _client.PostAsJsonAsync("/api/auth/login",
@@ -307,6 +408,7 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     private sealed record LoginDto(string Token, DateTime ExpiresAt, string RefreshToken);
     private sealed record SolicitationDto(Guid Id, string JobName);
+    private sealed record CalendarMeetingDto(Guid Id, Guid SolicitationId, string JobName, DateTime ScheduledAtUtc);
     private sealed record CreatedInviteDto(Guid Id, string Link, DateTime ExpiresAtUtc, bool EmailSent);
     private sealed record InviteLookupDto(string Email, DateTime ExpiresAtUtc);
     private sealed record UserDto(Guid Id, string Username);

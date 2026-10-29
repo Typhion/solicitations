@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Button } from '../../../shared/ui/button/button';
+import { Segment, Segmented } from '../../../shared/ui/segmented/segmented';
 import { SolicitationService } from '../solicitation.service';
 import { StatusBadge } from '../status-badge/status-badge';
 
@@ -9,7 +10,7 @@ const PAGE_SIZE = 20;
 
 @Component({
     selector: 'app-solicitation-list',
-    imports: [Button, StatusBadge, RouterLink],
+    imports: [Button, StatusBadge, RouterLink, Segmented, Segment],
     templateUrl: './solicitation-list.html',
 })
 export class SolicitationList {

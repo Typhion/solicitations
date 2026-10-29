@@ -1,3 +1,4 @@
+using Application.Meetings;
 using Domain.Solicitation;
 
 namespace Application.Solicitations;
@@ -5,6 +6,7 @@ namespace Application.Solicitations;
 public interface ISolicitationRepository
 {
     Task<IReadOnlyList<Solicitation>> ListAsync(Guid ownerId, int skip, int take, CancellationToken ct);
+    Task<IReadOnlyList<CalendarMeetingDto>> ListMeetingsAsync(Guid ownerId, DateTime fromUtc, DateTime toUtc, Guid? solicitationId, CancellationToken ct);
     Task<int> CountAsync(Guid ownerId, CancellationToken ct);
     Task<Solicitation?> GetByIdAsync(Guid id, Guid ownerId, CancellationToken ct);
     void Add(Solicitation solicitation);

@@ -1,0 +1,90 @@
+<div class="border-border grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b">
+    <div></div>
+    @for (day of days(); track day.date.getTime()) {
+        <div class="border-border flex flex-col items-center gap-0.5 border-l py-2">
+            <span class="text-muted text-xs font-medium tracking-wide uppercase">
+                {{ day.date | date: 'EEE' }}
+            </span>
+            <span
+                class="inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-base tabular-nums"
+                [class]="
+                    day.isToday
+                        ? 'bg-accent text-accent-foreground font-semibold'
+                        : 'text-foreground'
+                "
+            >
+                {{ day.date.getDate() }}
+            </span>
+        </div>
+    }
+</div>
+
+<div #scroller class="max-h-[calc(100vh-16rem)] min-h-96 overflow-y-auto">
+    <div
+        class="relative grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]"
+        [style.height.px]="gridHeight"
+    >
+        <div class="relative" aria-hidden="true">
+            @for (h of hourLines; track h) {
+                <span
+                    class="text-muted absolute right-2 -translate-y-1/2 text-[11px] tabular-nums"
+                    [style.top.px]="h * hour"
+                >
+                    {{ hourLabel(h) }}
+                </span>
+            }
+        </div>
+
+        @for (day of days(); track day.date.getTime()) {
+            <div class="border-border relative border-l" [class]="day.isToday ? 'bg-accent/5' : ''">
+                @for (h of hourLines; track h) {
+                    <div
+                        class="border-border/70 absolute inset-x-0 border-t"
+                        [style.top.px]="h * hour"
+                    ></div>
+                }
+
+                @for (e of day.events; track e.meeting.id) {
+                    <button
+                        type="button"
+                        data-meeting
+                        class="text-foreground focus-visible:ring-ring/40 absolute flex cursor-pointer flex-col overflow-hidden rounded-sm border-l-2 px-1.5 py-1 text-left text-xs leading-tight transition-colors focus-visible:z-10 focus-visible:ring-2 focus-visible:outline-none"
+                        [class]="eventColor(e.meeting.solicitationId)"
+                        [class.opacity-60]="e.meeting.at < now()"
+                        [style.top.px]="e.top + 1"
+                        [style.height.px]="e.height"
+                        [style.left]="e.left"
+                        [style.width]="e.width"
+                        [attr.aria-label]="
+                            typeLabels[e.meeting.type] +
+                            ', ' +
+                            e.meeting.jobName +
+                            ', ' +
+                            (e.meeting.at | date: 'EEEE HH:mm')
+                        "
+                        (click)="open(e.meeting, $event)"
+                    >
+                        <span class="truncate font-medium">{{ typeLabels[e.meeting.type] }}</span>
+                        <span class="text-muted truncate">
+                            {{ e.meeting.at | date: 'HH:mm' }}
+                            @if (!e.compact) {
+                                · {{ e.meeting.company }}
+                            }
+                        </span>
+                    </button>
+                }
+
+                @if (day.isToday) {
+                    <div
+                        class="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                        [style.top.px]="nowTop()"
+                        aria-hidden="true"
+                    >
+                        <span class="bg-danger -ml-1 size-2 rounded-full"></span>
+                        <span class="bg-danger h-px flex-1"></span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>

@@ -27,6 +27,14 @@ export const routes: Routes = [
                     ),
             },
             { path: 'new', loadComponent: solicitationForm },
+            // before ':id', or "calendar" would be read as a solicitation id
+            {
+                path: 'calendar',
+                loadComponent: () =>
+                    import('./features/calendar/meeting-calendar/meeting-calendar').then(
+                        (m) => m.MeetingCalendar,
+                    ),
+            },
             {
                 path: ':id',
                 loadComponent: () =>

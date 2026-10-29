@@ -30,6 +30,9 @@ export class Login {
     /** Arriving from the register page: show a note and pre-fill the new username. */
     readonly justRegistered = this.route.snapshot.queryParamMap.has('registered');
 
+    /** Sent here because the API ended the session (e.g. account locked, or refresh expired). */
+    readonly sessionEnded = this.route.snapshot.queryParamMap.has('sessionEnded');
+
     readonly form = this.fb.nonNullable.group({
         username: [this.route.snapshot.queryParamMap.get('username') ?? '', Validators.required],
         password: ['', Validators.required],

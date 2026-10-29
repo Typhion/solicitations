@@ -1,0 +1,63 @@
+<div class="border-border grid grid-cols-7 border-b">
+    @for (d of weekdays; track $index) {
+        <div class="text-muted px-2 py-2 text-xs font-medium tracking-wide uppercase">
+            {{ d | date: 'EEE' }}
+        </div>
+    }
+</div>
+
+<div class="bg-border grid grid-cols-7 grid-rows-6 gap-px">
+    @for (day of days(); track day.date.getTime()) {
+        <div
+            class="flex min-h-28 min-w-0 flex-col gap-0.5 p-1.5"
+            [class.bg-surface]="day.inMonth"
+            [class.bg-background]="!day.inMonth"
+        >
+            <button
+                type="button"
+                class="focus-visible:ring-ring/40 mb-0.5 inline-flex h-6 min-w-6 cursor-pointer items-center justify-center self-start rounded-full px-1.5 text-xs tabular-nums transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                [class]="
+                    day.isToday
+                        ? 'bg-accent text-accent-foreground font-semibold'
+                        : day.inMonth
+                          ? 'text-foreground hover:bg-surface-hover'
+                          : 'text-muted hover:bg-surface-hover'
+                "
+                [attr.aria-label]="'Show week of ' + (day.date | date: 'd MMMM y')"
+                (click)="showDay.emit(day.date)"
+            >
+                {{ day.date.getDate() === 1 ? (day.date | date: 'd MMM') : day.date.getDate() }}
+            </button>
+
+            @for (m of day.visible; track m.id) {
+                <button
+                    type="button"
+                    data-meeting
+                    class="text-foreground focus-visible:ring-ring/40 flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm border-l-2 px-1.5 py-0.5 text-left text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                    [class]="eventColor(m.solicitationId)"
+                    [class.opacity-60]="m.at < now()"
+                    [attr.aria-label]="
+                        typeLabels[m.type] + ', ' + m.jobName + ', ' + (m.at | date: 'HH:mm')
+                    "
+                    (click)="open(m, $event)"
+                >
+                    <span class="text-muted shrink-0 tabular-nums">{{ m.at | date: 'HH:mm' }}</span>
+                    <span class="truncate">
+                        <span class="font-medium">{{ typeLabels[m.type] }}</span>
+                        <span class="text-muted"> · {{ m.company }}</span>
+                    </span>
+                </button>
+            }
+
+            @if (day.hidden > 0) {
+                <button
+                    type="button"
+                    class="text-muted hover:bg-surface-hover hover:text-foreground cursor-pointer self-start rounded-sm px-1.5 py-0.5 text-xs font-medium transition-colors"
+                    (click)="showDay.emit(day.date)"
+                >
+                    +{{ day.hidden }} more
+                </button>
+            }
+        </div>
+    }
+</div>

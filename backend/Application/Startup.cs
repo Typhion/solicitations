@@ -1,6 +1,7 @@
 using Application.Account;
 using Application.Auth;
 using Application.Invites;
+using Application.Meetings;
 using Application.Solicitations;
 using Application.Users;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,7 @@ public static class Startup
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<SolicitationService>();
+        services.AddScoped<MeetingCalendarService>();
         services.AddScoped<InviteService>();
         services.AddScoped<RegistrationService>();
         services.AddScoped<UserManagementService>();

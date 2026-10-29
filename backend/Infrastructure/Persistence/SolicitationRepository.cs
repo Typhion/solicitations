@@ -1,3 +1,4 @@
+using Application.Meetings;
 using Application.Solicitations;
 using Domain.Solicitation;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,21 @@ internal sealed class SolicitationRepository(SolicitationsDbContext context) : I
             .Where(s => s.OwnerId == ownerId)
             .OrderBy(s => s.Id)
             .Skip(skip).Take(take)
+            .ToListAsync(ct);
+
+    // Meeting has no navigation back to its solicitation, so flatten from the aggregate root.
+    public async Task<IReadOnlyList<CalendarMeetingDto>> ListMeetingsAsync(
+        Guid ownerId, DateTime fromUtc, DateTime toUtc, Guid? solicitationId, CancellationToken ct)
+        => await context.Solicitations.AsNoTracking()
+            .Where(s => s.OwnerId == ownerId && (solicitationId == null || s.Id == solicitationId))
+            .SelectMany(
+                s => s.Meetings.Where(m => m.ScheduledAtUtc >= fromUtc && m.ScheduledAtUtc < toUtc),
+                (s, m) => new { s, m })
+            // order before projecting: EF can't translate members of a constructor-projected record
+            .OrderBy(x => x.m.ScheduledAtUtc)
+            .Select(x => new CalendarMeetingDto(
+                x.m.Id, x.s.Id, x.s.JobName, x.s.Website.Name, x.s.Status,
+                x.m.ScheduledAtUtc, x.m.Type, x.m.IsOnline, x.m.OnlineTool, x.s.Location.City))
             .ToListAsync(ct);
 
     public Task<int> CountAsync(Guid ownerId, CancellationToken ct)

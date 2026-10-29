@@ -1,0 +1,309 @@
+<div class="flex flex-col gap-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="text-foreground text-xl font-semibold tracking-tight">Solicitations</h1>
+            <p class="text-muted mt-1 text-sm">
+                Your interviews and calls across all applications.
+            </p>
+        </div>
+        <nav appSegmented aria-label="Solicitations view">
+            <a appSegment routerLink="/solicitations">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                </svg>
+                List
+            </a>
+            <a appSegment [active]="true" routerLink="/solicitations/calendar">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+                Calendar
+            </a>
+        </nav>
+    </header>
+
+    <div class="border-border bg-surface overflow-hidden rounded-lg border">
+        <!-- toolbar -->
+        <div
+            class="border-border flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2.5"
+        >
+            <div class="flex items-center gap-2">
+                <button appButton variant="secondary" size="sm" (click)="today()" title="Today (T)">
+                    Today
+                </button>
+                <div class="flex items-center">
+                    <button
+                        appButton
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Previous"
+                        title="Previous (←)"
+                        (click)="previous()"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="m15 18-6-6 6-6" />
+                        </svg>
+                    </button>
+                    <button
+                        appButton
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Next"
+                        title="Next (→)"
+                        (click)="next()"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="m9 18 6-6-6-6" />
+                        </svg>
+                    </button>
+                </div>
+                <h2 class="text-foreground text-base font-semibold" aria-live="polite">
+                    {{ title() }}
+                </h2>
+                @if (meetings.isLoading()) {
+                    <span class="text-muted text-xs" aria-hidden="true">Loading…</span>
+                }
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <select
+                    appInput
+                    class="w-48"
+                    aria-label="Filter by solicitation"
+                    [value]="solicitation() ?? ''"
+                    (change)="setSolicitation($any($event.target).value)"
+                >
+                    <option value="">All solicitations</option>
+                    @if (solicitationOptions.hasValue()) {
+                        @for (s of solicitationOptions.value().items; track s.id) {
+                            <option [value]="s.id" [selected]="s.id === solicitation()">
+                                {{ s.jobName }} · {{ s.website.name }}
+                            </option>
+                        }
+                    }
+                </select>
+                <input
+                    appInput
+                    type="search"
+                    class="w-52"
+                    placeholder="Search meetings…"
+                    aria-label="Search meetings"
+                    [value]="search()"
+                    (input)="onSearch($any($event.target).value)"
+                />
+                <div appSegmented role="group" aria-label="Calendar view">
+                    @for (v of views; track v) {
+                        <button
+                            type="button"
+                            appSegment
+                            class="capitalize"
+                            [active]="currentView() === v"
+                            [attr.aria-pressed]="currentView() === v"
+                            [title]="v + ' (' + v[0].toUpperCase() + ')'"
+                            (click)="setView(v)"
+                        >
+                            {{ v }}
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (meetings.error()) {
+            <div
+                class="border-border bg-danger/10 flex items-center justify-between gap-3 border-b px-4 py-2.5"
+            >
+                <p class="text-danger text-sm">Could not load meetings.</p>
+                <button appButton variant="secondary" size="sm" (click)="meetings.reload()">
+                    Retry
+                </button>
+            </div>
+        }
+
+        @if (filtersActive()) {
+            <div
+                class="border-border flex items-center justify-between gap-3 border-b px-4 py-2 text-sm"
+            >
+                <p class="text-muted">
+                    {{ visibleMeetings().length }}
+                    {{ visibleMeetings().length === 1 ? 'meeting matches' : 'meetings match' }}
+                    in this {{ currentView() === 'week' ? 'week' : 'month' }}
+                </p>
+                <button appButton variant="ghost" size="sm" (click)="clearFilters()">
+                    Clear filters
+                </button>
+            </div>
+        }
+
+        <div [class.opacity-60]="meetings.isLoading()" class="transition-opacity">
+            @switch (currentView()) {
+                @case ('month') {
+                    <app-month-view
+                        [date]="anchor()"
+                        [meetings]="visibleMeetings()"
+                        [now]="now()"
+                        (select)="open($event)"
+                        (showDay)="showDay($event)"
+                    />
+                }
+                @case ('week') {
+                    <app-week-view
+                        [date]="anchor()"
+                        [meetings]="visibleMeetings()"
+                        [now]="now()"
+                        (select)="open($event)"
+                    />
+                }
+                @case ('agenda') {
+                    <app-agenda-view
+                        [meetings]="visibleMeetings()"
+                        [now]="now()"
+                        [searching]="filtersActive()"
+                        (select)="open($event)"
+                    />
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@for (sel of popover(); track sel.meeting.id) {
+    <ng-template
+        cdkConnectedOverlay
+        [cdkConnectedOverlayOrigin]="sel.origin"
+        [cdkConnectedOverlayOpen]="true"
+        [cdkConnectedOverlayPositions]="positions"
+        (overlayOutsideClick)="onOutsideClick($event)"
+        (detach)="close()"
+    >
+        @let m = sel.meeting;
+        <div
+            role="dialog"
+            [attr.aria-label]="typeLabels[m.type]"
+            class="border-border bg-surface shadow-overlay flex w-80 flex-col gap-3 rounded-lg border p-4"
+        >
+            <div class="flex items-start gap-2.5">
+                <span
+                    class="mt-1.5 size-2.5 shrink-0 rounded-full"
+                    [class]="dotColor(m.solicitationId)"
+                ></span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-foreground text-base font-semibold">{{ typeLabels[m.type] }}</p>
+                    <p class="text-muted mt-0.5 text-sm">
+                        {{ m.at | date: 'EEEE d MMMM y' }} · {{ m.at | date: 'HH:mm' }}
+                    </p>
+                </div>
+                <button
+                    appButton
+                    variant="ghost"
+                    size="icon"
+                    class="-mt-1 -mr-1"
+                    aria-label="Close"
+                    (click)="close()"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <dl class="flex flex-col gap-2 text-sm">
+                <div class="flex gap-3">
+                    <dt class="text-muted w-16 shrink-0">Where</dt>
+                    <dd class="text-foreground">
+                        @if (m.isOnline) {
+                            Online · {{ m.onlineTool }}
+                        } @else {
+                            In person · {{ m.city }}
+                        }
+                    </dd>
+                </div>
+                <div class="flex gap-3">
+                    <dt class="text-muted w-16 shrink-0">Job</dt>
+                    <dd class="text-foreground min-w-0">
+                        <div class="truncate font-medium">{{ m.jobName }}</div>
+                        <div class="text-muted truncate">{{ m.company }}</div>
+                    </dd>
+                </div>
+                <div class="flex items-center gap-3">
+                    <dt class="text-muted w-16 shrink-0">Status</dt>
+                    <dd><app-status-badge [status]="m.status" /></dd>
+                </div>
+            </dl>
+
+            <a
+                appButton
+                variant="secondary"
+                size="sm"
+                class="self-start"
+                [routerLink]="['/solicitations', m.solicitationId]"
+            >
+                Open solicitation
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="m9 18 6-6-6-6" />
+                </svg>
+            </a>
+        </div>
+    </ng-template>
+}
