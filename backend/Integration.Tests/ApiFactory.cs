@@ -1,4 +1,10 @@
+using System.Collections.Concurrent;
+using Application.Common;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 
 namespace Integration.Tests;
@@ -16,9 +22,25 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string AdminPassword = "Admin#Test12345";
 
+    /// <summary>Every email the API "sends" lands here instead of an SMTP server.</summary>
+    public CapturingEmailSender Emails { get; } = new();
+
+    /// <summary>
+    /// Admin actions require 2FA. The first test that needs it enables it on the seeded admin
+    /// and keeps the authenticator secret here, so later tests can produce codes.
+    /// </summary>
+    public string? AdminTotpSecret { get; set; }
+
     private readonly PostgreSqlContainer _db = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
         .Build();
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+        => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Emails);
+        });
 
     async Task IAsyncLifetime.InitializeAsync()
     {
@@ -35,5 +57,19 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await _db.DisposeAsync();
         await base.DisposeAsync();
+    }
+}
+
+public sealed class CapturingEmailSender : IEmailSender
+{
+    private readonly ConcurrentQueue<EmailMessage> _sent = new();
+
+    public bool CanDeliver => true;
+    public IEnumerable<EmailMessage> Sent => _sent;
+
+    public Task SendAsync(EmailMessage message, CancellationToken ct)
+    {
+        _sent.Enqueue(message);
+        return Task.CompletedTask;
     }
 }

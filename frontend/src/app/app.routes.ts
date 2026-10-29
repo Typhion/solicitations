@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { Login } from './features/auth/login/login';
-import { authGuard } from './core/auth/auth.guard';
+import { adminGuard, authGuard } from './core/auth/auth.guard';
 
 // Feature pages are lazy-loaded so each one only downloads when first visited
 // (e.g. the QR code library only ships with the profile page).
@@ -11,6 +11,10 @@ const solicitationForm = () =>
 
 export const routes: Routes = [
     { path: 'login', component: Login },
+    {
+        path: 'register',
+        loadComponent: () => import('./features/auth/register/register').then((m) => m.Register),
+    },
     {
         path: 'solicitations',
         canActivate: [authGuard],
@@ -37,6 +41,11 @@ export const routes: Routes = [
         path: 'profile',
         canActivate: [authGuard],
         loadComponent: () => import('./features/profile/profile').then((m) => m.ProfilePage),
+    },
+    {
+        path: 'admin/users',
+        canActivate: [authGuard, adminGuard],
+        loadComponent: () => import('./features/admin/users/users').then((m) => m.Users),
     },
     { path: '', redirectTo: 'solicitations', pathMatch: 'full' },
 ];

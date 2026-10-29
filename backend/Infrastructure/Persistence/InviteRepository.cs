@@ -17,5 +17,13 @@ internal sealed class InviteRepository(SolicitationsDbContext context) : IInvite
     public async Task<IReadOnlyList<Invite>> ListAsync(CancellationToken ct)
         => await context.Invites.AsNoTracking().OrderByDescending(i => i.CreatedAtUtc).ToListAsync(ct);
 
+    public Task<bool> HasOpenInviteForEmailAsync(string email, DateTime utcNow, CancellationToken ct)
+    {
+        var normalized = email.ToLower();
+        return context.Invites.AnyAsync(i =>
+            i.Email != null && i.Email.ToLower() == normalized
+            && i.Status == InviteStatus.Pending && i.ExpiresAtUtc > utcNow, ct);
+    }
+
     public Task SaveChangesAsync(CancellationToken ct) => context.SaveChangesAsync(ct);
 }

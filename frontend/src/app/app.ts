@@ -19,6 +19,10 @@ export class App {
         this.router.navigate(['/profile']);
     }
 
+    openUsers(): void {
+        this.router.navigate(['/admin/users']);
+    }
+
     logout(): void {
         this.auth.logout();
         this.router.navigate(['/login']);

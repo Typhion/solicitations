@@ -6,6 +6,7 @@ using Application.Users;
 using Infrastructure.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -73,8 +74,13 @@ public static class Startup
 
         services.AddAuthorizationBuilder()
             .AddPolicy("Admin", policy => policy.RequireRole("Admin"))
-            .AddPolicy("CanManageSolicitations", policy => policy.RequireAuthenticatedUser());
-        
+            .AddPolicy("CanManageSolicitations", policy => policy.RequireAuthenticatedUser())
+            // Changing who can access the system (invites, roles, locks, deletes) needs 2FA.
+            .AddPolicy("AdminWithTwoFactor", policy => policy
+                .RequireRole("Admin")
+                .AddRequirements(new TwoFactorEnabledRequirement()));
+        services.AddScoped<IAuthorizationHandler, TwoFactorEnabledHandler>();
+
         services.AddScoped<ISecureTokenService, SecureTokenService>();
         services.AddScoped<IUserRegistrar, UserRegistrar>();
         services.AddScoped<IUserDirectory, UserDirectory>();

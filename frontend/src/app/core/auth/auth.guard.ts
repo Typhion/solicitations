@@ -13,3 +13,9 @@ export const authGuard: CanActivateFn = (_route, state) => {
         queryParams: { returnUrl: state.url },
     });
 };
+
+/** Admin-only pages. Use after `authGuard`; non-admins go back to the app. */
+export const adminGuard: CanActivateFn = () => {
+    const auth = inject(AuthService);
+    return auth.isAdmin() || inject(Router).createUrlTree(['/solicitations']);
+};

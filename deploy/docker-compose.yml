@@ -33,6 +33,16 @@ services:
       # network. The password comes from .env — never hardcode it.
       ConnectionStrings__Default: >-
         Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      # Links in invite emails point at the SPA.
+      App__FrontendBaseUrl: https://admin.typhion.com
+      # SMTP for invite emails. Leave EMAIL_HOST empty to disable sending (admins then
+      # copy the invite link from the UI). Values come from .env — never hardcode them.
+      Email__Host: ${EMAIL_HOST:-}
+      Email__Port: ${EMAIL_PORT:-587}
+      Email__Username: ${EMAIL_USERNAME:-}
+      Email__Password: ${EMAIL_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM_ADDRESS:-}
+      Email__FromName: ${EMAIL_FROM_NAME:-Solicitations}
     depends_on:
       db:
         condition: service_healthy

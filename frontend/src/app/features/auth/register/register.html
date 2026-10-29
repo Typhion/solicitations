@@ -1,0 +1,77 @@
+<div class="flex justify-center pt-16">
+    <div class="border-border bg-surface flex w-full max-w-sm flex-col gap-5 rounded-lg border p-6">
+        <div>
+            <h1 class="text-foreground text-lg font-semibold tracking-tight">
+                Create your account
+            </h1>
+            <p class="text-muted mt-1 text-sm">You've been invited to Solicitations.</p>
+        </div>
+
+        @if (!token() || invite.error() || (invite.hasValue() && !invite.value())) {
+            <div class="flex flex-col gap-3">
+                <p class="text-danger text-sm" role="alert">
+                    This invite link is invalid, expired or already used.
+                </p>
+                <p class="text-muted text-sm">Ask an administrator to send you a new invite.</p>
+                <a appButton variant="secondary" routerLink="/login">Go to sign in</a>
+            </div>
+        } @else if (invite.hasValue()) {
+            @let inv = invite.value()!;
+            <form class="flex flex-col gap-4" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+                <label class="flex flex-col gap-1.5">
+                    <span class="text-foreground text-sm font-medium">Email</span>
+                    <input
+                        appInput
+                        type="email"
+                        [value]="inv.email ?? ''"
+                        readonly
+                        disabled
+                        autocomplete="email"
+                    />
+                </label>
+
+                <app-field label="Username" [control]="form.controls.username">
+                    <input
+                        appInput
+                        type="text"
+                        formControlName="username"
+                        autocomplete="username"
+                    />
+                </app-field>
+
+                <app-field label="Password" [control]="form.controls.password">
+                    <input
+                        appInput
+                        type="password"
+                        formControlName="password"
+                        autocomplete="new-password"
+                    />
+                </app-field>
+
+                <app-field label="Confirm password" [control]="form.controls.confirmPassword">
+                    <input
+                        appInput
+                        type="password"
+                        formControlName="confirmPassword"
+                        autocomplete="new-password"
+                    />
+                </app-field>
+                <p class="text-muted -mt-2 text-xs">{{ passwordHint }}</p>
+
+                @if (error()) {
+                    <p class="text-danger text-sm" role="alert">{{ error() }}</p>
+                }
+
+                <button appButton type="submit" class="w-full" [disabled]="saving()">
+                    {{ saving() ? 'Creating account…' : 'Create account' }}
+                </button>
+            </form>
+        } @else {
+            <div class="flex flex-col gap-3" aria-busy="true" aria-label="Checking invite">
+                @for (i of [1, 2, 3]; track i) {
+                    <div class="bg-surface-hover h-9 animate-pulse rounded-md"></div>
+                }
+            </div>
+        }
+    </div>
+</div>

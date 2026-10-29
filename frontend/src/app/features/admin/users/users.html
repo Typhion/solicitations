@@ -1,0 +1,382 @@
+<div class="flex flex-col gap-6">
+    <header>
+        <h1 class="text-foreground text-xl font-semibold tracking-tight">Users</h1>
+        <p class="text-muted mt-1 text-sm">Who has access, and who's been invited.</p>
+    </header>
+
+    @if (profileLoaded() && !canManage()) {
+        <div
+            class="border-warning/40 bg-warning/10 flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3"
+            role="status"
+        >
+            <p class="text-foreground text-sm">
+                Enable two-factor authentication to invite, lock, promote or delete users.
+            </p>
+            <a appButton size="sm" routerLink="/profile">Go to profile</a>
+        </div>
+    }
+
+    @if (actionError()) {
+        <p
+            class="border-danger/30 bg-danger/10 text-danger rounded-md border px-3 py-2 text-sm"
+            role="alert"
+        >
+            {{ actionError() }}
+        </p>
+    }
+
+    <div class="border-border flex gap-1 border-b" role="tablist">
+        <button
+            type="button"
+            role="tab"
+            class="-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm font-medium transition-colors"
+            [class]="
+                tab() === 'members'
+                    ? 'border-accent text-foreground'
+                    : 'text-muted hover:text-foreground border-transparent'
+            "
+            [attr.aria-selected]="tab() === 'members'"
+            (click)="tab.set('members')"
+        >
+            Members
+            @if (users.hasValue()) {
+                <span class="text-muted ml-1">{{ users.value().length }}</span>
+            }
+        </button>
+        <button
+            type="button"
+            role="tab"
+            class="-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm font-medium transition-colors"
+            [class]="
+                tab() === 'invites'
+                    ? 'border-accent text-foreground'
+                    : 'text-muted hover:text-foreground border-transparent'
+            "
+            [attr.aria-selected]="tab() === 'invites'"
+            (click)="tab.set('invites')"
+        >
+            Invites
+            @if (pendingInvites()) {
+                <span class="text-muted ml-1">{{ pendingInvites() }} pending</span>
+            }
+        </button>
+    </div>
+
+    @if (tab() === 'members') {
+        <div class="border-border bg-surface overflow-hidden rounded-lg border">
+            @if (users.error()) {
+                <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                    <p class="text-danger text-sm">Could not load users.</p>
+                    <button appButton variant="secondary" size="sm" (click)="users.reload()">
+                        Retry
+                    </button>
+                </div>
+            } @else if (users.hasValue()) {
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="text-muted text-xs font-medium tracking-wide uppercase">
+                                <th scope="col" class="px-4 py-2.5 font-medium">User</th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">Role</th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">Status</th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">2FA</th>
+                                <th scope="col" class="px-4 py-2.5 text-right font-medium">
+                                    Solicitations
+                                </th>
+                                <th scope="col" class="w-0 px-2 py-2.5">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody [class.opacity-60]="users.isLoading()">
+                            @for (u of users.value(); track u.id) {
+                                @let isMe = u.username === me();
+                                <tr
+                                    class="border-border hover:bg-surface-hover border-t transition-colors"
+                                >
+                                    <td class="px-4 py-3">
+                                        <div
+                                            class="text-foreground flex items-center gap-2 font-medium"
+                                        >
+                                            {{ u.username }}
+                                            @if (isMe) {
+                                                <span appBadge>You</span>
+                                            }
+                                        </div>
+                                        <div class="text-muted mt-0.5 text-xs">
+                                            {{ u.email ?? '—' }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        @if (isAdmin(u)) {
+                                            <span appBadge tone="accent">Admin</span>
+                                        } @else {
+                                            <span appBadge>Member</span>
+                                        }
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        @if (u.isLockedOut) {
+                                            <span appBadge tone="danger">Locked</span>
+                                        } @else {
+                                            <span appBadge tone="success">Active</span>
+                                        }
+                                    </td>
+                                    <td class="text-muted px-4 py-3">
+                                        {{ u.twoFactorEnabled ? 'On' : 'Off' }}
+                                    </td>
+                                    <td class="text-foreground px-4 py-3 text-right tabular-nums">
+                                        {{ u.solicitationCount }}
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <!-- No actions on yourself: the API refuses self-lock/-delete/-demote. -->
+                                        @if (!isMe) {
+                                            <button
+                                                appButton
+                                                variant="ghost"
+                                                size="icon"
+                                                [cdkMenuTriggerFor]="userMenu"
+                                                [disabled]="!canManage() || busyId() === u.id"
+                                                [attr.aria-label]="'Actions for ' + u.username"
+                                            >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="16"
+                                                    height="16"
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                >
+                                                    <circle cx="5" cy="12" r="1.75" />
+                                                    <circle cx="12" cy="12" r="1.75" />
+                                                    <circle cx="19" cy="12" r="1.75" />
+                                                </svg>
+                                            </button>
+                                            <ng-template #userMenu>
+                                                <div appMenu>
+                                                    <button
+                                                        appMenuItem
+                                                        (triggered)="toggleAdmin(u)"
+                                                    >
+                                                        {{
+                                                            isAdmin(u)
+                                                                ? 'Remove admin'
+                                                                : 'Make admin'
+                                                        }}
+                                                    </button>
+                                                    <button appMenuItem (triggered)="toggleLock(u)">
+                                                        {{ u.isLockedOut ? 'Unlock' : 'Lock' }}
+                                                    </button>
+                                                    <div appMenuSeparator></div>
+                                                    <button
+                                                        appMenuItem
+                                                        class="text-danger!"
+                                                        (triggered)="remove(u)"
+                                                    >
+                                                        Delete…
+                                                    </button>
+                                                </div>
+                                            </ng-template>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            } @else {
+                <div class="flex flex-col" aria-busy="true" aria-label="Loading users">
+                    @for (i of [1, 2, 3]; track i) {
+                        <div class="border-border flex gap-4 border-t px-4 py-4 first:border-t-0">
+                            <div class="bg-surface-hover h-4 w-1/4 animate-pulse rounded"></div>
+                            <div class="bg-surface-hover h-4 w-16 animate-pulse rounded-full"></div>
+                            <div class="bg-surface-hover h-4 w-16 animate-pulse rounded-full"></div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    } @else {
+        <!-- Invite form -->
+        <form
+            class="border-border bg-surface flex flex-col gap-4 rounded-lg border p-5"
+            [formGroup]="inviteForm"
+            (ngSubmit)="sendInvite()"
+            novalidate
+        >
+            <div>
+                <h2 class="text-foreground text-sm font-semibold">Invite by email</h2>
+                <p class="text-muted mt-1 text-xs">
+                    They get a link to create an account as a member. Only that email address can
+                    use it.
+                </p>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-[1fr_10rem_auto] sm:items-start">
+                <app-field label="Email" [control]="inviteForm.controls.email">
+                    <input
+                        appInput
+                        type="email"
+                        formControlName="email"
+                        autocomplete="off"
+                        placeholder="name@example.com"
+                    />
+                </app-field>
+                <app-field label="Link valid for" [control]="inviteForm.controls.expiresInDays">
+                    <select appInput formControlName="expiresInDays">
+                        @for (d of expiryOptions; track d) {
+                            <option [ngValue]="d">{{ d }} {{ d === 1 ? 'day' : 'days' }}</option>
+                        }
+                    </select>
+                </app-field>
+                <button
+                    appButton
+                    type="submit"
+                    class="sm:mt-6.5"
+                    [disabled]="!canManage() || inviting()"
+                >
+                    {{ inviting() ? 'Sending…' : 'Send invite' }}
+                </button>
+            </div>
+
+            @if (lastInvite(); as li) {
+                <div
+                    class="flex flex-col gap-2 rounded-md border p-3"
+                    [class]="
+                        li.emailSent
+                            ? 'border-success/30 bg-success/10'
+                            : 'border-warning/40 bg-warning/10'
+                    "
+                    role="status"
+                >
+                    <p class="text-foreground text-sm">
+                        @if (li.emailSent) {
+                            Invite emailed to <strong>{{ li.email }}</strong
+                            >.
+                        } @else {
+                            The email to <strong>{{ li.email }}</strong> couldn't be sent. Copy the
+                            link and send it yourself.
+                        }
+                    </p>
+                    <div class="flex items-center gap-2">
+                        <code
+                            class="bg-surface border-border text-muted min-w-0 flex-1 truncate rounded-md border px-2 py-1.5 font-mono text-xs"
+                        >
+                            {{ li.link }}
+                        </code>
+                        <button
+                            appButton
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            (click)="copyLink()"
+                        >
+                            {{ copied() ? 'Copied' : 'Copy link' }}
+                        </button>
+                    </div>
+                    <p class="text-muted text-xs">
+                        Valid until {{ li.expiresAtUtc | date: 'd MMM y, HH:mm' }}. This link won't
+                        be shown again; use Resend for a new one.
+                    </p>
+                </div>
+            }
+        </form>
+
+        <!-- Invite list -->
+        <div class="border-border bg-surface overflow-hidden rounded-lg border">
+            @if (invites.error()) {
+                <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                    <p class="text-danger text-sm">Could not load invites.</p>
+                    <button appButton variant="secondary" size="sm" (click)="invites.reload()">
+                        Retry
+                    </button>
+                </div>
+            } @else if (invites.hasValue()) {
+                @if (invites.value().length === 0) {
+                    <div class="px-6 py-10 text-center">
+                        <p class="text-foreground text-sm font-medium">No invites yet.</p>
+                    </div>
+                } @else {
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="text-muted text-xs font-medium tracking-wide uppercase">
+                                    <th scope="col" class="px-4 py-2.5 font-medium">Email</th>
+                                    <th scope="col" class="px-4 py-2.5 font-medium">Status</th>
+                                    <th scope="col" class="px-4 py-2.5 font-medium">Expires</th>
+                                    <th scope="col" class="px-4 py-2.5 font-medium">Sent</th>
+                                    <th scope="col" class="w-0 px-2 py-2.5">
+                                        <span class="sr-only">Actions</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody [class.opacity-60]="invites.isLoading()">
+                                @for (i of invites.value(); track i.id) {
+                                    @let status = inviteStatus(i);
+                                    <tr
+                                        class="border-border hover:bg-surface-hover border-t transition-colors"
+                                    >
+                                        <td class="text-foreground px-4 py-3">
+                                            {{ i.email ?? '—' }}
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span appBadge [tone]="status.tone">{{
+                                                status.label
+                                            }}</span>
+                                        </td>
+                                        <td class="text-muted px-4 py-3">
+                                            {{ i.expiresAtUtc | date: 'd MMM y' }}
+                                        </td>
+                                        <td class="text-muted px-4 py-3">
+                                            {{ i.createdAtUtc | date: 'd MMM y' }}
+                                        </td>
+                                        <td class="px-2 py-2">
+                                            @if (i.status === Pending) {
+                                                <button
+                                                    appButton
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    [cdkMenuTriggerFor]="inviteMenu"
+                                                    [disabled]="!canManage() || busyId() === i.id"
+                                                    [attr.aria-label]="
+                                                        'Actions for invite to ' + i.email
+                                                    "
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="16"
+                                                        height="16"
+                                                        viewBox="0 0 24 24"
+                                                        fill="currentColor"
+                                                    >
+                                                        <circle cx="5" cy="12" r="1.75" />
+                                                        <circle cx="12" cy="12" r="1.75" />
+                                                        <circle cx="19" cy="12" r="1.75" />
+                                                    </svg>
+                                                </button>
+                                                <ng-template #inviteMenu>
+                                                    <div appMenu>
+                                                        <button appMenuItem (triggered)="resend(i)">
+                                                            Resend
+                                                        </button>
+                                                        <div appMenuSeparator></div>
+                                                        <button
+                                                            appMenuItem
+                                                            class="text-danger!"
+                                                            (triggered)="revoke(i)"
+                                                        >
+                                                            Revoke
+                                                        </button>
+                                                    </div>
+                                                </ng-template>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            } @else {
+                <div class="h-32 animate-pulse" aria-busy="true" aria-label="Loading invites"></div>
+            }
+        </div>
+    }
+</div>

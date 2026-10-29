@@ -4,11 +4,16 @@ import { Observable, finalize, shareReplay, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
     AccessToken,
+    InviteLookup,
     LoginRequest,
+    RegisterRequest,
     LoginResponse,
     TwoFactorLoginRequest,
     isTwoFactorChallenge,
 } from './auth.models';
+
+// System.Security.Claims.ClaimTypes.Role — what JwtTokenService puts in the token.
+const ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -25,18 +30,35 @@ export class AuthService {
 
     readonly isLoggedIn = computed(() => this.accessToken() !== null);
 
-    /** Display name from the access token's `unique_name` claim. */
-    readonly username = computed(() => {
+    // Decoded access-token payload. Only used for display/navigation — the API enforces access.
+    private readonly claims = computed<Record<string, unknown>>(() => {
         const token = this.accessToken()?.token;
-        if (!token) return null;
+        if (!token) return {};
         try {
             // JWT payload is base64url; atob needs standard base64.
             const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-            return (JSON.parse(atob(payload))['unique_name'] as string | undefined) ?? null;
+            return JSON.parse(atob(payload));
         } catch {
-            return null;
+            return {};
         }
     });
+
+    /** Display name from the access token's `unique_name` claim. */
+    readonly username = computed(
+        () => (this.claims()['unique_name'] as string | undefined) ?? null,
+    );
+
+    /**
+     * Roles (a string for one role, an array for several). The API writes them under the full
+     * .NET claim type URI, not the short `role` name, so accept both.
+     */
+    readonly roles = computed<string[]>(() => {
+        const claims = this.claims();
+        const role = claims[ROLE_CLAIM] ?? claims['role'];
+        return Array.isArray(role) ? role : typeof role === 'string' ? [role] : [];
+    });
+
+    readonly isAdmin = computed(() => this.roles().includes('Admin'));
 
     get token(): string | null {
         return this.accessToken()?.token ?? null;
@@ -55,6 +77,16 @@ export class AuthService {
         return this.http
             .post<AccessToken>(`${this.baseUrl}/login/2fa`, body, { withCredentials: true })
             .pipe(tap((t) => this.accessToken.set(t)));
+    }
+
+    /** What the register page may show for an invite token; 404 when invalid/expired/used. */
+    lookupInvite(token: string): Observable<InviteLookup> {
+        return this.http.get<InviteLookup>(`${this.baseUrl}/invites/${encodeURIComponent(token)}`);
+    }
+
+    /** Creates the account from an invite (the user signs in afterwards). */
+    register(body: RegisterRequest): Observable<void> {
+        return this.http.post<void>(`${this.baseUrl}/register`, body);
     }
 
     /** Adopt a session issued elsewhere (e.g. after a password change). */

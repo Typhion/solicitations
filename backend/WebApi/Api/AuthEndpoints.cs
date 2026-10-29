@@ -1,4 +1,5 @@
 using Application.Auth;
+using Application.Invites;
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 using Infrastructure.Security;
@@ -32,6 +33,12 @@ public static class AuthEndpoints
 
         group.MapPost("/register", RegisterAsync)
             .AddEndpointFilter<ValidationFilter<RegisterRequest>>()
+            .RequireRateLimiting("login")
+            .AllowAnonymous();
+
+        // Lets the register page show/lock the invited email before the user fills anything in.
+        group.MapGet("/invites/{token}", async (string token, InviteService invites, CancellationToken ct) =>
+                Results.Ok(await invites.LookupAsync(token, ct)))
             .RequireRateLimiting("login")
             .AllowAnonymous();
 

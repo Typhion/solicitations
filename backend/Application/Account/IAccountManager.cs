@@ -18,4 +18,10 @@ public interface IAccountManager
 
     Task<AccountResult> DisableTwoFactorAsync(Guid userId, string password, CancellationToken ct);
     Task<AccountResult<IReadOnlyList<string>>> RegenerateRecoveryCodesAsync(Guid userId, string password, CancellationToken ct);
+
+    /// <summary>
+    /// Step-up check for sensitive actions: true when 2FA is on and the code from the user's
+    /// authenticator app is valid. Wrong codes count toward lockout.
+    /// </summary>
+    Task<bool> VerifyAuthenticatorCodeAsync(Guid userId, string code, CancellationToken ct);
 }

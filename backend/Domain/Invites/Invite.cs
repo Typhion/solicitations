@@ -44,4 +44,16 @@ public class Invite : Entity
         if (Status != InviteStatus.Pending) throw new DomainException("Only pending invites can be revoked.");
         Status = InviteStatus.Revoked;
     }
+
+    /// <summary>
+    /// Replaces the token (only its hash is stored, so a lost link can't be re-sent as-is) and
+    /// extends the expiry. The previous link stops working.
+    /// </summary>
+    public void Reissue(string tokenHash, DateTime expiresAtUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
+        if (Status != InviteStatus.Pending) throw new DomainException("Only pending invites can be resent.");
+        TokenHash = tokenHash;
+        ExpiresAtUtc = expiresAtUtc;
+    }
 }

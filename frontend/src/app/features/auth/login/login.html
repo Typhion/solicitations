@@ -10,6 +10,15 @@
                 <p class="text-muted mt-1 text-sm">Use your account to continue.</p>
             </div>
 
+            @if (justRegistered) {
+                <p
+                    class="border-success/30 bg-success/10 text-foreground rounded-md border px-3 py-2 text-sm"
+                    role="status"
+                >
+                    Account created. Sign in with your new password.
+                </p>
+            }
+
             <label class="flex flex-col gap-1.5">
                 <span class="text-foreground text-sm font-medium">Username</span>
                 <input appInput type="text" formControlName="username" autocomplete="username" />

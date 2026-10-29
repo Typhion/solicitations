@@ -11,7 +11,7 @@ import { Field } from '../../shared/ui/field/field';
 import { Input } from '../../shared/ui/input/input';
 import { AuthenticatorSetup } from './account.models';
 import { AccountService } from './account.service';
-import { PASSWORD_HINT, matches, passwordStrength } from './password-rules';
+import { PASSWORD_HINT, matches, passwordStrength } from '../../shared/forms/password-rules';
 import {
     PasswordConfirmData,
     PasswordConfirmDialog,

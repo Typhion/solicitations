@@ -93,6 +93,20 @@ internal sealed class AccountManager(UserManager<AppUser> userManager) : IAccoun
         return AccountResult<IReadOnlyList<string>>.Success(await NewRecoveryCodesAsync(user));
     }
 
+    public async Task<bool> VerifyAuthenticatorCodeAsync(Guid userId, string code, CancellationToken ct)
+    {
+        var user = await GetAsync(userId);
+        if (!await userManager.GetTwoFactorEnabledAsync(user) || await userManager.IsLockedOutAsync(user))
+            return false;
+
+        if (await userManager.VerifyTwoFactorTokenAsync(
+                user, userManager.Options.Tokens.AuthenticatorTokenProvider, AuthenticationService.NormalizeTotp(code)))
+            return true;
+
+        await userManager.AccessFailedAsync(user);
+        return false;
+    }
+
     // Wrong passwords count toward lockout, same as at login.
     private async Task<AccountResult> ConfirmPasswordAsync(AppUser user, string password)
     {

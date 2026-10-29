@@ -24,6 +24,18 @@ export interface TwoFactorLoginRequest {
     useRecoveryCode: boolean;
 }
 
+export interface InviteLookup {
+    email: string | null;
+    expiresAtUtc: string;
+}
+
+export interface RegisterRequest {
+    token: string;
+    username: string;
+    email: string;
+    password: string;
+}
+
 export function isTwoFactorChallenge(r: LoginResponse): r is TwoFactorChallenge {
     return 'requiresTwoFactor' in r && r.requiresTwoFactor;
 }

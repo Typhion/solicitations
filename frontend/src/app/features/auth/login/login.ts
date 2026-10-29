@@ -27,8 +27,11 @@ export class Login {
     readonly useRecoveryCode = signal(false);
 
     // Reactive form. nonNullable so the values are typed as string (not string|null).
+    /** Arriving from the register page: show a note and pre-fill the new username. */
+    readonly justRegistered = this.route.snapshot.queryParamMap.has('registered');
+
     readonly form = this.fb.nonNullable.group({
-        username: ['', Validators.required],
+        username: [this.route.snapshot.queryParamMap.get('username') ?? '', Validators.required],
         password: ['', Validators.required],
     });
 

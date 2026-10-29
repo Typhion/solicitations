@@ -4,14 +4,16 @@ using Microsoft.Extensions.Logging;
 namespace Infrastructure.Notifications;
 
 /// <summary>
-/// Default email "sender" that just logs the message.
-/// Swap for a real SMTP/provider implementation (same interface) when you wire up delivery.
+/// Fallback when no SMTP server is configured (dev/tests). Logs only recipient + subject —
+/// bodies can contain invite links, which must not end up in logs.
 /// </summary>
 internal sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEmailSender
 {
-    public Task SendAsync(string to, string subject, string body, CancellationToken ct)
+    public bool CanDeliver => false;
+
+    public Task SendAsync(EmailMessage message, CancellationToken ct)
     {
-        logger.LogInformation("EMAIL → {To} | {Subject} | {Body}", to, subject, body);
+        logger.LogInformation("Email delivery not configured; not sending \"{Subject}\" to {To}", message.Subject, message.To);
         return Task.CompletedTask;
     }
 }
