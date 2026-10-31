@@ -51,6 +51,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("Jwt__Key", "integration-tests-signing-key-0123456789-abcdefghij");
         Environment.SetEnvironmentVariable("Seed__AdminPassword", AdminPassword);
         Environment.SetEnvironmentVariable("RateLimiting__LoginPermitLimit", "1000"); // don't 429 the suite
+        Environment.SetEnvironmentVariable("RateLimiting__RefreshPermitLimit", "1000");
     }
 
     async Task IAsyncLifetime.DisposeAsync()

@@ -24,16 +24,23 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     
-    var loginPermit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 5);
-    options.AddPolicy("login", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = loginPermit,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0
-            }));
+    // Per-IP fixed window of one minute.
+    void AddPerIpPolicy(string name, int permitLimit) =>
+        options.AddPolicy(name, httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = permitLimit,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+
+    // Tight: guards password guessing.
+    AddPerIpPolicy("login", builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 5));
+    // Loose and separate: the SPA calls /refresh on every page load and on token expiry, so it
+    // must not eat into the login budget. Still capped to blunt refresh-token guessing.
+    AddPerIpPolicy("refresh", builder.Configuration.GetValue("RateLimiting:RefreshPermitLimit", 60));
 });
 
 builder.Services.AddOpenApi();

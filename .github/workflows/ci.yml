@@ -138,8 +138,15 @@ jobs:
         with:
           context: ${{ matrix.context }}
           push: false
+          load: true # keep the image locally for the check below
+          tags: ci/${{ matrix.name }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,scope=${{ matrix.name }},mode=max
+
+      # A broken nginx.conf builds fine but crash-loops on the server: test the config here.
+      - name: Test nginx config
+        if: matrix.name == 'web'
+        run: docker run --rm ci/web nginx -t
 
   # Single stable check for branch protection: require "CI result" only. Jobs above may be
   # skipped (nothing changed), which would leave individually-required checks pending forever.

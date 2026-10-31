@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Observable, map } from 'rxjs';
+import { PageTitle } from '../../../core/title/page-title';
 import { Button } from '../../../shared/ui/button/button';
 import { Field } from '../../../shared/ui/field/field';
 import { Input } from '../../../shared/ui/input/input';
@@ -26,6 +27,7 @@ export class SolicitationForm implements OnInit {
     private readonly fb = inject(FormBuilder);
     private readonly service = inject(SolicitationService);
     private readonly router = inject(Router);
+    private readonly pageTitle = inject(PageTitle);
 
     /** Route param, bound via withComponentInputBinding(). Absent on create. */
     readonly id = input<string>();
@@ -69,6 +71,7 @@ export class SolicitationForm implements OnInit {
         this.service.get(id).subscribe({
             next: (s) => {
                 this.form.patchValue(s);
+                this.pageTitle.set(`Edit ${s.jobName}`);
                 this.loading.set(false);
             },
             error: () => {

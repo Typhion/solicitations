@@ -43,7 +43,7 @@ public static class AuthEndpoints
             .AllowAnonymous();
 
         group.MapPost("/refresh", RefreshAsync)
-            .RequireRateLimiting("login")
+            .RequireRateLimiting("refresh")
             .AllowAnonymous();
 
         group.MapPost("/logout", LogoutAsync)
