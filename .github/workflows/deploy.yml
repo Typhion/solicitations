@@ -122,39 +122,60 @@ jobs:
         # Values go in as positional args ($1..$4); the script body is sent verbatim over
         # stdin (quoted heredoc = no local expansion). An empty image arg = not rebuilt this
         # push, so its .env line (and the running container) is left alone.
+        #
+        # The body is wrapped in main(), so bash reads the WHOLE script before running any of
+        # it. `bash -s` otherwise reads it line by line from stdin, and any command that also
+        # reads stdin (e.g. `docker compose exec`) swallows the rest — the script then ends
+        # early with exit 0 and the deploy silently does nothing.
         run: |
           API_REF=""; WEB_REF=""
           if [ "$BUILT_API" = true ]; then API_REF="$API_IMAGE:$SHA"; fi
           if [ "$BUILT_WEB" = true ]; then WEB_REF="$WEB_IMAGE:$SHA"; fi
           ssh server 'bash -s' "$APP_DIR" "$API_REF" "$WEB_REF" "$SHA" <<'EOSSH'
-          set -euo pipefail
-          APP_DIR="$1"; API_IMAGE="$2"; WEB_IMAGE="$3"; SHA="$4"
-          export DOCKER_CONFIG="$APP_DIR/.docker" # GHCR credentials from the login step
-          cd "$APP_DIR"
-          test -f .env || { echo "::error::$APP_DIR/.env missing — bootstrap the server first (deploy/README.md)"; exit 1; }
+          main() {
+            set -euo pipefail
+            APP_DIR="$1"; API_IMAGE="$2"; WEB_IMAGE="$3"; SHA="$4"
+            export DOCKER_CONFIG="$APP_DIR/.docker" # GHCR credentials from the login step
+            cd "$APP_DIR"
+            test -f .env || { echo "::error::$APP_DIR/.env missing — bootstrap the server first (deploy/README.md)"; exit 1; }
 
-          # Migrations run automatically when a new API boots, so snapshot the DB first —
-          # only when the API is being replaced. Skipped on the very first deploy (no db
-          # container yet). Keeps the newest 10. Dumps hold user data: owner-only permissions.
-          umask 077
-          mkdir -p backups
-          if [ -n "$API_IMAGE" ] && [ -n "$(docker compose ps -q --status running db)" ]; then
-            docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-              | gzip > "backups/pre-$SHA.sql.gz"
-            ls -1t backups/pre-*.sql.gz | tail -n +11 | xargs -r rm --
-            echo "Backup written: backups/pre-$SHA.sql.gz"
-          fi
+            # Migrations run automatically when a new API boots, so snapshot the DB first —
+            # only when the API is being replaced. Skipped on the very first deploy (no db
+            # container yet). Keeps the newest 10. Dumps hold user data: owner-only permissions.
+            umask 077
+            mkdir -p backups
+            if [ -n "$API_IMAGE" ] && [ -n "$(docker compose ps -q --status running db)" ]; then
+              docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' </dev/null \
+                | gzip > "backups/pre-$SHA.sql.gz"
+              ls -1t backups/pre-*.sql.gz | tail -n +11 | xargs -r rm --
+              echo "Backup written: backups/pre-$SHA.sql.gz"
+            fi
 
-          # Update ONLY the image lines; every other value (secrets) is preserved.
-          set_var() {
-            if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi
+            # Update ONLY the image lines; every other value (secrets) is preserved.
+            set_var() {
+              if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi
+            }
+            if [ -n "$API_IMAGE" ]; then set_var API_IMAGE "$API_IMAGE"; fi
+            if [ -n "$WEB_IMAGE" ]; then set_var WEB_IMAGE "$WEB_IMAGE"; fi
+
+            docker compose pull </dev/null
+            docker compose up -d --remove-orphans </dev/null
+            docker image prune -f
+
+            # Fail unless the containers really run what was just built — the smoke check
+            # alone can't tell, since the previous version is healthy too.
+            expect_image() {
+              local running
+              running=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q "$1")")
+              if [ "$running" != "$2" ]; then
+                echo "::error::$1 runs $running, expected $2"; exit 1
+              fi
+              echo "$1 → $running"
+            }
+            if [ -n "$API_IMAGE" ]; then expect_image api "$API_IMAGE"; fi
+            if [ -n "$WEB_IMAGE" ]; then expect_image web "$WEB_IMAGE"; fi
           }
-          if [ -n "$API_IMAGE" ]; then set_var API_IMAGE "$API_IMAGE"; fi
-          if [ -n "$WEB_IMAGE" ]; then set_var WEB_IMAGE "$WEB_IMAGE"; fi
-
-          docker compose pull
-          docker compose up -d --remove-orphans
-          docker image prune -f
+          main "$@"
           EOSSH
 
       - name: Smoke check
