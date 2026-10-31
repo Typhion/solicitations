@@ -17,6 +17,7 @@ import { Segment, Segmented } from '../../../shared/ui/segmented/segmented';
 import { meetingTypeLabels } from '../../solicitations/meeting-type';
 import { SolicitationService } from '../../solicitations/solicitation.service';
 import { StatusBadge } from '../../solicitations/status-badge/status-badge';
+import { SolicitationsNav } from '../../solicitations/solicitations-nav/solicitations-nav';
 import { AgendaView } from '../agenda-view/agenda-view';
 import { CalendarMeeting, CalendarView, MeetingSelection } from '../calendar.models';
 import { dotColor } from '../calendar-colors';
@@ -54,6 +55,7 @@ const POPOVER_POSITIONS: ConnectedPosition[] = [
         MonthView,
         WeekView,
         AgendaView,
+        SolicitationsNav,
     ],
     templateUrl: './meeting-calendar.html',
     host: { '(document:keydown)': 'onKeydown($event)' },

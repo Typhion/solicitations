@@ -56,7 +56,7 @@ Clean Architecture, minimal APIs, **no MediatR**. Dependencies point inward:
   reuse detection). Registration is **invite-gated** (admin issues invites); `Admin` vs `Member`
   roles drive policies. Per-user data (solicitations) is owner-scoped via `ICurrentUser`.
 - Secrets via user-secrets (dev) / env (prod), never in `appsettings`: `Jwt__Key`,
-  `Seed__AdminPassword`, `ConnectionStrings__Default`. JWT options are validated on start.
+  `Seed__AdminPassword`, `ConnectionStrings__Default`, `GoogleMaps__ServerApiKey` / `GoogleMaps__BrowserApiKey` (optional). JWT options are validated on start.
 - EF: store enums as strings (`HasConversion<string>()`); aggregate-child entities added through
   a navigation need `ValueGeneratedNever()` on their `Id` (the domain assigns it).
 - List endpoints are paginated (`?page=&pageSize=`) returning `PagedResult<T>`.

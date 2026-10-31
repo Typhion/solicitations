@@ -103,7 +103,6 @@ namespace Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Domain.Meeting.Meeting", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<bool>("IsOnline")
@@ -141,6 +140,9 @@ namespace Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("LocationBackfillAttemptedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid");
@@ -405,6 +407,16 @@ namespace Infrastructure.Persistence.Migrations
                                 .HasMaxLength(100)
                                 .HasColumnType("character varying(100)");
 
+                            b1.Property<double?>("Latitude")
+                                .HasColumnType("double precision");
+
+                            b1.Property<double?>("Longitude")
+                                .HasColumnType("double precision");
+
+                            b1.Property<string>("PlaceId")
+                                .HasMaxLength(300)
+                                .HasColumnType("character varying(300)");
+
                             b1.Property<string>("Street")
                                 .IsRequired()
                                 .HasMaxLength(200)
@@ -414,6 +426,9 @@ namespace Infrastructure.Persistence.Migrations
                                 .IsRequired()
                                 .HasMaxLength(20)
                                 .HasColumnType("character varying(20)");
+
+                            b1.Property<DateTime?>("VerifiedAtUtc")
+                                .HasColumnType("timestamp with time zone");
 
                             b1.Property<string>("ZipCode")
                                 .IsRequired()

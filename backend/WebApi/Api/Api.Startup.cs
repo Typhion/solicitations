@@ -13,6 +13,7 @@ public static class Startup
         app.MapAuthEndpoints(versionSet);
         app.MapSolicitationEndpoints(versionSet);
         app.MapMeetingEndpoints(versionSet);
+        app.MapPlacesEndpoints(versionSet);
         app.MapInviteEndpoints(versionSet);
         app.MapUserEndpoints(versionSet);
         app.MapAccountEndpoints(versionSet);

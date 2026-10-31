@@ -1,0 +1,114 @@
+<div class="flex flex-col gap-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="text-foreground text-xl font-semibold tracking-tight">Solicitations</h1>
+            <p class="text-muted mt-1 text-sm">Where the companies you applied to are.</p>
+        </div>
+        <app-solicitations-nav />
+    </header>
+
+    @if (solicitations.error()) {
+        <div class="border-border bg-surface rounded-lg border px-6 py-12 text-center">
+            <p class="text-danger text-sm">Could not load your solicitations.</p>
+            <button
+                appButton
+                variant="secondary"
+                size="sm"
+                class="mt-3"
+                (click)="solicitations.reload()"
+            >
+                Retry
+            </button>
+        </div>
+    } @else {
+        <div
+            class="border-border bg-surface grid overflow-hidden rounded-lg border lg:grid-cols-[1fr_22rem]"
+        >
+            <div class="relative">
+                <app-map
+                    class="h-[26rem] lg:h-[36rem]"
+                    [pins]="pins()"
+                    [selectedId]="selected()"
+                    (pinClick)="onPinClick($event)"
+                />
+                @if (solicitations.hasValue() && !groups().length) {
+                    <div
+                        class="pointer-events-none absolute inset-0 flex items-center justify-center p-6"
+                    >
+                        <p
+                            class="bg-surface border-border text-muted max-w-xs rounded-md border px-3 py-2 text-center text-sm shadow"
+                        >
+                            No verified addresses yet. Edit a solicitation and pick its address from
+                            the suggestions to put it on the map.
+                        </p>
+                    </div>
+                }
+            </div>
+
+            <div
+                class="border-border flex max-h-[36rem] flex-col border-t lg:border-t-0 lg:border-l"
+            >
+                @if (solicitations.isLoading()) {
+                    <div class="flex flex-col gap-2 p-4">
+                        @for (i of [1, 2, 3]; track i) {
+                            <div class="bg-surface-hover h-14 animate-pulse rounded-md"></div>
+                        }
+                    </div>
+                } @else {
+                    <ul class="divide-border flex-1 divide-y overflow-y-auto">
+                        @for (g of groups(); track g.key) {
+                            <li
+                                [id]="'group-' + g.key"
+                                class="transition-colors"
+                                [class.bg-surface-hover]="selected() === g.key"
+                            >
+                                @for (s of g.solicitations; track s.id) {
+                                    <div class="flex items-start gap-2.5 px-4 py-3">
+                                        <button
+                                            type="button"
+                                            class="mt-1.5 size-2.5 shrink-0 cursor-pointer rounded-full"
+                                            [class]="dotColor(s.id)"
+                                            [attr.aria-label]="
+                                                'Show ' + s.website.name + ' on the map'
+                                            "
+                                            (click)="onListClick(g.key)"
+                                        ></button>
+                                        <div class="min-w-0 flex-1">
+                                            <button
+                                                type="button"
+                                                class="text-foreground block w-full cursor-pointer truncate text-left text-sm font-medium"
+                                                (click)="onListClick(g.key)"
+                                            >
+                                                {{ s.website.name }}
+                                            </button>
+                                            <a
+                                                class="text-muted hover:text-foreground block truncate text-sm"
+                                                [routerLink]="['/solicitations', s.id]"
+                                            >
+                                                {{ s.jobName }}
+                                            </a>
+                                            <p class="text-muted mt-0.5 truncate text-xs">
+                                                {{ s.location.street }}
+                                                {{ s.location.streetNumber }},
+                                                {{ s.location.zipCode }} {{ s.location.city }}
+                                            </p>
+                                        </div>
+                                        <app-status-badge [status]="s.status" />
+                                    </div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                    @if (unverified() > 0) {
+                        <p class="border-border text-muted border-t px-4 py-2.5 text-xs">
+                            {{ unverified() }}
+                            {{ unverified() === 1 ? 'solicitation has' : 'solicitations have' }}
+                            an unverified address and
+                            {{ unverified() === 1 ? 'is' : 'are' }} not on the map.
+                        </p>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>

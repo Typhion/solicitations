@@ -1,5 +1,7 @@
 using Application.Common;
 using Application.Common.Exceptions;
+using Application.Places;
+using Domain.Core;
 using Application.Solicitations;
 using Domain.Meeting;
 using Domain.Solicitation;
@@ -12,13 +14,14 @@ public class SolicitationServiceTests
 {
     private readonly ISolicitationRepository _repository = Substitute.For<ISolicitationRepository>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    private readonly IPlacesClient _places = Substitute.For<IPlacesClient>();
     private readonly Guid _ownerId = Guid.NewGuid();
     private readonly SolicitationService _sut;
 
     public SolicitationServiceTests()
     {
         _currentUser.Id.Returns(_ownerId);
-        _sut = new SolicitationService(_repository, _currentUser);
+        _sut = new SolicitationService(_repository, _currentUser, _places, TimeProvider.System);
     }
 
     // ---------- Create ----------
@@ -229,6 +232,130 @@ public class SolicitationServiceTests
         await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    // ---------- Address verification ----------
+
+    private const string GhentPlaceId = "ChIJ-ghent-veldstraat-1";
+
+    private static readonly PlaceAddress Ghent = new(GhentPlaceId, "Veldstraat 1, 9000 Gent, België",
+        "België", "BE", "Gent", "9000", "Veldstraat", "1", 51.05, 3.72);
+
+    private static readonly LocationDto PickedGhent =
+        new("België", "Gent", "9000", "Veldstraat", "1", Validated: true, PlaceId: GhentPlaceId);
+
+    private static Location VerifiedGhent(DateTime verifiedAt) => Location.Verified(
+        "België", "Gent", "9000", "Veldstraat", "1", GhentPlaceId, 51.05, 3.72, verifiedAt);
+
+    [Fact]
+    public async Task CreateAsync_FreeText_IsStoredAsTyped_WithoutCallingGoogle()
+    {
+        var request = NewCreateRequest() with { Location = new LocationDto("US", "Austin", "73301", "Congress Ave", "1") };
+
+        var response = await _sut.CreateAsync(request, CancellationToken.None);
+
+        response.Location.Validated.Should().BeFalse();
+        response.Location.PlaceId.Should().BeNull();
+        response.Location.Latitude.Should().BeNull();
+        _places.ReceivedCalls().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAsync_PickedPlace_StoresGooglesAddress_PlaceIdAndCoordinates()
+    {
+        _places.GetPlaceAsync(GhentPlaceId, null, Arg.Any<CancellationToken>()).Returns(Ghent);
+
+        var response = await _sut.CreateAsync(NewCreateRequest() with { Location = PickedGhent }, CancellationToken.None);
+
+        response.Location.Should().Be(
+            new LocationDto("België", "Gent", "9000", "Veldstraat", "1", true, GhentPlaceId, 51.05, 3.72));
+    }
+
+    [Fact]
+    public async Task CreateAsync_VerifyWithoutPick_SearchesTheTypedAddress()
+    {
+        _places.FindAddressAsync(Arg.Any<AddressQuery>(), Arg.Any<CancellationToken>()).Returns(Ghent);
+        var typed = new LocationDto("Belgium", "gent", "9000", "veldstraat", "1", Validated: true);
+
+        var response = await _sut.CreateAsync(NewCreateRequest() with { Location = typed }, CancellationToken.None);
+
+        response.Location.PlaceId.Should().Be(GhentPlaceId);
+        await _places.Received(1).FindAddressAsync(
+            new AddressQuery("Belgium", "gent", "9000", "veldstraat", "1"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_PlaceWithoutHouseNumber_KeepsTheTypedNumber()
+    {
+        _places.GetPlaceAsync(GhentPlaceId, null, Arg.Any<CancellationToken>()).Returns(Ghent with { StreetNumber = "" });
+
+        var response = await _sut.CreateAsync(
+            NewCreateRequest() with { Location = PickedGhent with { StreetNumber = "12B" } }, CancellationToken.None);
+
+        response.Location.StreetNumber.Should().Be("12B");
+    }
+
+    [Fact]
+    public async Task CreateAsync_NoMatch_ThrowsDomainException_AndDoesNotSave()
+    {
+        _places.GetPlaceAsync(GhentPlaceId, null, Arg.Any<CancellationToken>()).Returns((PlaceAddress?)null);
+
+        var act = () => _sut.CreateAsync(NewCreateRequest() with { Location = PickedGhent }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*could not be verified*");
+        await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_PlaceOutsideTheEu_ThrowsDomainException()
+    {
+        _places.GetPlaceAsync(GhentPlaceId, null, Arg.Any<CancellationToken>())
+            .Returns(Ghent with { Country = "United States", CountryCode = "US" });
+
+        var act = () => _sut.CreateAsync(NewCreateRequest() with { Location = PickedGhent }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*EU*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_GoogleUnavailable_ThrowsDomainException()
+    {
+        _places.GetPlaceAsync(GhentPlaceId, null, Arg.Any<CancellationToken>())
+            .Returns<PlaceAddress?>(_ => throw new PlacesUnavailableException("down"));
+
+        var act = () => _sut.CreateAsync(NewCreateRequest() with { Location = PickedGhent }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*unavailable*");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_UnchangedVerifiedAddress_IsKept_WithoutCallingGoogle()
+    {
+        var verifiedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        var solicitation = NewSolicitation();
+        solicitation.UpdateDetails("Dev", VerifiedGhent(verifiedAt), solicitation.Website, solicitation.Contact);
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
+
+        var request = NewUpdateRequest() with { Location = PickedGhent with { City = "gent " } };
+        await _sut.UpdateAsync(solicitation.Id, request, CancellationToken.None);
+
+        _places.ReceivedCalls().Should().BeEmpty();
+        solicitation.Location.VerifiedAtUtc.Should().Be(verifiedAt);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SwitchingToFreeText_DropsPlaceIdAndCoordinates()
+    {
+        var solicitation = NewSolicitation();
+        solicitation.UpdateDetails("Dev", VerifiedGhent(DateTime.UtcNow), solicitation.Website, solicitation.Contact);
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
+
+        var request = NewUpdateRequest() with { Location = PickedGhent with { Validated = false } };
+        await _sut.UpdateAsync(solicitation.Id, request, CancellationToken.None);
+
+        solicitation.Location.IsVerified.Should().BeFalse();
+        solicitation.Location.PlaceId.Should().BeNull();
+        solicitation.Location.Latitude.Should().BeNull();
+    }
+
     // ---------- Builders ----------
 
     private static UpdateMeetingRequest NewUpdateMeetingRequest() =>
@@ -251,7 +378,7 @@ public class SolicitationServiceTests
     private Solicitation NewSolicitation(string jobName = "Developer") => new(
         _ownerId,
         jobName,
-        new Location("BE", "Brussels", "1000", "Main", "10"),
+        Location.Unverified("BE", "Brussels", "1000", "Main", "10"),
         new Website("Indeed", "https://indeed.com"),
         new Contact("John", "0123", "john@example.com"));
 }

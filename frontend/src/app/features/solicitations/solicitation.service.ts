@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { EMPTY, Observable, expand, map, reduce } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PagedResult } from '../../core/models/paged-result';
 import {
@@ -20,6 +20,16 @@ export class SolicitationService {
     list(page = 1, pageSize = 20): Observable<PagedResult<Solicitation>> {
         const params = new HttpParams().set('page', page).set('pageSize', pageSize);
         return this.http.get<PagedResult<Solicitation>>(this.baseUrl, { params });
+    }
+
+    /** Every solicitation, following the pages (the API caps pageSize at 100). */
+    listAll(): Observable<Solicitation[]> {
+        const pageSize = 100;
+        return this.list(1, pageSize).pipe(
+            expand((r) => (r.page < r.totalPages ? this.list(r.page + 1, pageSize) : EMPTY)),
+            map((r) => r.items),
+            reduce((all, items) => [...all, ...items], [] as Solicitation[]),
+        );
     }
 
     // GET /api/solicitations/{id}

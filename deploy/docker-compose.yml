@@ -64,6 +64,10 @@ services:
       Email__Password: ${EMAIL_PASSWORD:-}
       Email__FromAddress: ${EMAIL_FROM_ADDRESS:-}
       Email__FromName: ${EMAIL_FROM_NAME:-Solicitations}
+      # Google Maps Platform. Empty server key = verification off (free-text addresses only).
+      GoogleMaps__ServerApiKey: ${GOOGLE_MAPS_SERVER_KEY:-}
+      GoogleMaps__BrowserApiKey: ${GOOGLE_MAPS_BROWSER_KEY:-}
+      GoogleMaps__MapId: ${GOOGLE_MAPS_MAP_ID:-DEMO_MAP_ID}
     depends_on:
       db:
         condition: service_healthy

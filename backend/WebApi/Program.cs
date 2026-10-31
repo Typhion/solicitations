@@ -41,6 +41,19 @@ builder.Services.AddRateLimiter(options =>
     // Loose and separate: the SPA calls /refresh on every page load and on token expiry, so it
     // must not eat into the login budget. Still capped to blunt refresh-token guessing.
     AddPerIpPolicy("refresh", builder.Configuration.GetValue("RateLimiting:RefreshPermitLimit", 60));
+
+    // Per user: address search spends the Google Places quota.
+    var placesLimit = builder.Configuration.GetValue("RateLimiting:PlacesPermitLimit", 30);
+    options.AddPolicy("places", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.Identity?.Name
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = placesLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddOpenApi();

@@ -31,13 +31,21 @@ export const routes: Routes = [
                     ),
             },
             { path: 'new', title: 'New solicitation', loadComponent: solicitationForm },
-            // before ':id', or "calendar" would be read as a solicitation id
+            // before ':id', or "calendar"/"map" would be read as a solicitation id
             {
                 path: 'calendar',
                 title: 'Calendar',
                 loadComponent: () =>
                     import('./features/calendar/meeting-calendar/meeting-calendar').then(
                         (m) => m.MeetingCalendar,
+                    ),
+            },
+            {
+                path: 'map',
+                title: 'Map',
+                loadComponent: () =>
+                    import('./features/solicitations/solicitation-map/solicitation-map').then(
+                        (m) => m.SolicitationMap,
                     ),
             },
             {
