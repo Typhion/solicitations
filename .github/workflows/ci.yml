@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches-ignore: [main] # main is covered by deploy.yml, which calls this workflow first
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest # has Docker preinstalled, needed by the Testcontainers integration tests
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore backend/backend.sln
+
+      - name: Build
+        run: dotnet build backend/backend.sln --no-restore -c Release
+
+      - name: Test (unit + integration)
+        run: dotnet test backend/backend.sln --no-build -c Release --logger "console;verbosity=normal"
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22 # keep in sync with frontend/Dockerfile
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (production)
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test -- --watch=false
+
+  # Builds both images without pushing, so a broken Dockerfile fails on the branch
+  # instead of on main during a deploy.
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: api
+            context: backend
+          - name: web
+            context: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max

@@ -1,30 +1,48 @@
 # Runs ON the Hetzner server (lives in /opt/sollicitations).
-# Image tags + Postgres secrets are supplied via the .env file (seeded by the Ansible
-# bootstrap; the WEB_IMAGE/API_IMAGE lines are then updated per-deploy by CI).
+# Image tags + secrets are supplied via the .env file (created once by hand at bootstrap,
+# see deploy/README.md; the WEB_IMAGE/API_IMAGE lines are then updated per-deploy by CI).
+# This file itself is copied over on every deploy — the repo is the source of truth.
 #
 # Frontend + backend join the shared `traefik-web` network (owned by the euro-millions
 # / Traefik stack) for public TLS routing. Postgres stays on a PRIVATE network and is
 # never exposed to Traefik or the internet.
+#
+# The server is shared with euro-millions, so every service is memory-capped and has
+# rotated logs: this stack must never be able to starve the box or fill its disk.
+
+x-defaults: &defaults
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   web:
+    <<: *defaults
     image: ${WEB_IMAGE:-ghcr.io/typhion/sollicitations-web:latest}
-    restart: unless-stopped
     pull_policy: always
+    mem_limit: 64m
     expose:
-      - "80"
+      - "8080"
     labels:
       - traefik.enable=true
+      - traefik.docker.network=traefik-web
       - traefik.http.routers.sol-web.rule=Host(`admin.typhion.com`)
       - traefik.http.routers.sol-web.entrypoints=websecure
       - traefik.http.routers.sol-web.tls.certresolver=le
-      - traefik.http.services.sol-web.loadbalancer.server.port=80
+      - traefik.http.services.sol-web.loadbalancer.server.port=8080
     networks:
       - web
 
   api:
+    <<: *defaults
     image: ${API_IMAGE:-ghcr.io/typhion/sollicitations-api:latest}
-    restart: unless-stopped
     pull_policy: always
+    mem_limit: 512m
     expose:
       - "8080"
     environment:
@@ -33,6 +51,9 @@ services:
       # network. The password comes from .env — never hardcode it.
       ConnectionStrings__Default: >-
         Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      # Required secrets — `:?` makes compose refuse to start if they're missing from .env.
+      Jwt__Key: ${JWT_KEY:?JWT_KEY must be set in .env}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set in .env}
       # Links in invite emails point at the SPA.
       App__FrontendBaseUrl: https://admin.typhion.com
       # SMTP for invite emails. Leave EMAIL_HOST empty to disable sending (admins then
@@ -48,17 +69,21 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
+      # The api sits on two networks; tell Traefik which one to reach it on, otherwise
+      # it may pick the private network's IP (unreachable from Traefik) and serve 502s.
+      - traefik.docker.network=traefik-web
       - traefik.http.routers.sol-api.rule=Host(`api.admin.typhion.com`)
       - traefik.http.routers.sol-api.entrypoints=websecure
       - traefik.http.routers.sol-api.tls.certresolver=le
       - traefik.http.services.sol-api.loadbalancer.server.port=8080
     networks:
-      - web        # receive traffic from Traefik
+      - web        # receive traffic from Traefik (and outbound SMTP)
       - internal   # reach the database
 
   db:
+    <<: *defaults
     image: postgres:17-alpine
-    restart: unless-stopped
+    mem_limit: 384m
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -75,12 +100,15 @@ services:
 
 networks:
   web:
-    # Shared Traefik network owned by the euro-millions stack.
+    # Shared Traefik network owned by the euro-millions stack. External, so nothing
+    # in this project can create, change or remove it.
     name: traefik-web
     external: true
   internal:
-    # Private; created and owned by THIS project. Only api + db attach.
+    # Private and created by THIS project. Only api + db attach. `internal: true`
+    # also cuts it off from the internet, so the db has no outbound access at all.
     driver: bridge
+    internal: true
 
 volumes:
   pgdata:

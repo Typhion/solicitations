@@ -6,6 +6,16 @@ import { App } from './app';
 
 describe('App', () => {
     beforeEach(async () => {
+        // jsdom has no matchMedia; the theme service reads prefers-color-scheme on startup.
+        vi.stubGlobal(
+            'matchMedia',
+            vi.fn().mockReturnValue({
+                matches: false,
+                addEventListener: vi.fn(),
+                removeEventListener: vi.fn(),
+            }),
+        );
+
         await TestBed.configureTestingModule({
             imports: [App],
             providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -21,6 +31,6 @@ describe('App', () => {
         const fixture = TestBed.createComponent(App);
         await fixture.whenStable();
         const compiled = fixture.nativeElement as HTMLElement;
-        expect(compiled.querySelector('.brand')?.textContent).toContain('Solicitations');
+        expect(compiled.querySelector('nav a')?.textContent).toContain('Solicitations');
     });
 });

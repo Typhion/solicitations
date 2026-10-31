@@ -1,12 +1,10 @@
-.PHONY: up down dev
+.PHONY: up down
 
+# Local Postgres only. Run the app natively alongside it:
+#   dotnet run --project backend/WebApi   (API on http://localhost:5182)
+#   cd frontend && npm start              (SPA on http://localhost:4200)
 up:
 	docker compose up -d
 
 down:
 	docker compose down
-
-# Inner dev loop: Postgres + hot-reloading API (dotnet watch on bind-mounted source).
-# Run the Angular dev server natively alongside it: cd frontend && npm start
-dev:
-	docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db api

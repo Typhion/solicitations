@@ -37,7 +37,9 @@ Clean Architecture, minimal APIs, **no MediatR**. Dependencies point inward:
 - Build: `dotnet build backend/backend.sln`
 - Test (all): `dotnet test backend/backend.sln` — **integration tests need Docker** (Testcontainers)
 - One test: `dotnet test backend/backend.sln --filter "FullyQualifiedName~MyTest"`
-- Run: `dotnet run --project backend/WebApi` (Swagger/OpenAPI at `/openapi`, health at `/health/live` + `/health/ready`)
+- Local DB: `make up` / `make down` — Docker is used locally **only for Postgres** (root
+  `docker-compose.yml`); the API and frontend run natively.
+- Run: `dotnet run --project backend/WebApi` (http://localhost:5182; health at `/health/live` + `/health/ready`)
 - EF migration: `dotnet ef migrations add <Name> --project backend/Infrastructure --startup-project backend/WebApi`
   (applied automatically on boot by `InitialiseDatabaseAsync` → `MigrateAsync`)
 
@@ -72,19 +74,30 @@ Run all commands from `frontend/`:
 Formatting is Prettier (`.prettierrc`). Angular standalone-app style: providers are wired
 in `src/app/app.config.ts`, routes in `src/app/app.routes.ts`.
 
+## CI/CD (`.github/workflows/`)
+
+- `ci.yml` — backend build+tests, frontend build+tests, Docker image builds. Runs on every
+  push to a non-`main` branch and on PRs; also reused (`workflow_call`) by `deploy.yml`.
+- `deploy.yml` — on push to `main`: CI → push images to GHCR → SSH deploy → smoke check.
+  No Terraform/Ansible; the server is bootstrapped by hand once (`deploy/README.md`).
+
 ## Deploy (`deploy/`)
 
 `docker-compose.yml` is meant to run on the server at `/opt/sollicitations`, not locally.
-Key facts before touching it:
+The runbook is `deploy/README.md`. Key facts before touching it:
 
-- `web` (admin.typhion.com) and `api` (api.admin.typhion.com) attach to the **external**
-  `traefik-web` network owned by a separate Traefik stack — this repo does not run
-  Traefik. Public routing/TLS is via Traefik labels.
-- Postgres (`db`) is on a private `internal` network only — never expose a host port or
-  add Traefik labels to it.
+- The server is **shared with euro-millions**, whose stack runs Traefik. `web`
+  (admin.typhion.com) and `api` (api.admin.typhion.com) attach to its **external**
+  `traefik-web` network — this repo does not run Traefik or bind host ports. Keep the
+  `traefik.docker.network=traefik-web` labels, memory limits and log rotation.
+- Postgres (`db`) is on a private `internal: true` network only — never expose a host port
+  or add Traefik labels to it.
+- The web image is `nginx-unprivileged` listening on **8080**; security headers/CSP live in
+  `frontend/nginx.conf` (CSP `connect-src` must include the API origin).
 - Images come from `ghcr.io/typhion/sollicitations-{web,api}`; CI rewrites only the
-  `WEB_IMAGE`/`API_IMAGE` lines in the server's `.env` (SHA-pinned) per deploy. The
-  Postgres secrets in `.env` are set once at bootstrap and must be preserved.
+  `WEB_IMAGE`/`API_IMAGE` lines in the server's `.env` (SHA-pinned) per deploy. All other
+  `.env` values (Postgres, `JWT_KEY`, `SEED_ADMIN_PASSWORD`, SMTP) are set once at
+  bootstrap and must be preserved. Each deploy first dumps the DB to `backups/`.
 - The API reads its connection string from `ConnectionStrings__Default`, targeting the
   `db` service name on the private network.
 - `deploy/.env.example` is the template; the real `.env` lives only on the server and is
