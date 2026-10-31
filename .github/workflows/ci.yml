@@ -1,16 +1,77 @@
 name: CI
 
+# Runs on PRs, and on main as the first stage of deploy.yml (workflow_call).
+# Plain pushes to other branches don't build — open a PR for that.
 on:
-  push:
-    branches-ignore: [main] # main is covered by deploy.yml, which calls this workflow first
   pull_request:
   workflow_call:
+    outputs:
+      backend:
+        value: ${{ jobs.changes.outputs.backend }}
+      frontend:
+        value: ${{ jobs.changes.outputs.frontend }}
+      deploy:
+        value: ${{ jobs.changes.outputs.deploy }}
+      images:
+        value: ${{ jobs.changes.outputs.images }}
 
 permissions:
   contents: read
 
 jobs:
+  # Decides what needs building from the files changed in this PR / push.
+  # Plain git instead of a third-party paths-filter action.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+      deploy: ${{ steps.diff.outputs.deploy }}
+      images: ${{ steps.diff.outputs.images }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # full history, so the base commit is available to diff against
+
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          changed() { grep -qE "$1" <<<"$FILES" && echo true || echo false; }
+
+          # No usable base (manual run, new branch, force-pushed away) → build everything.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            FILES="(all)"; backend=true; frontend=true; deploy=true
+          else
+            # Three dots = diff against the merge base, i.e. only what this PR / push introduced.
+            FILES=$(git diff --name-only "$BASE...$HEAD")
+            if [ "$(changed '^\.github/workflows/')" = true ]; then
+              backend=true; frontend=true; deploy=true   # pipeline changed: verify everything
+            else
+              backend=$(changed '^backend/')
+              frontend=$(changed '^frontend/')
+              deploy=$(changed '^deploy/docker-compose\.yml$')
+            fi
+          fi
+
+          images=""
+          if [ "$backend" = true ]; then images='{"name":"api","context":"backend"}'; fi
+          if [ "$frontend" = true ]; then images="${images:+$images,}"'{"name":"web","context":"frontend"}'; fi
+
+          {
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "deploy=$deploy"
+            echo "images=[$images]"
+          } | tee -a "$GITHUB_OUTPUT"
+          echo "Changed files:"; echo "$FILES"
+
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest # has Docker preinstalled, needed by the Testcontainers integration tests
     steps:
       - uses: actions/checkout@v5
@@ -35,6 +96,8 @@ jobs:
         run: dotnet test backend/backend.sln --no-build -c Release --logger "console;verbosity=normal"
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -57,17 +120,15 @@ jobs:
       - name: Unit tests
         run: npm test -- --watch=false
 
-  # Builds both images without pushing, so a broken Dockerfile fails on the branch
+  # Builds the changed images without pushing, so a broken Dockerfile fails in the PR
   # instead of on main during a deploy.
   docker-build:
+    needs: changes
+    if: needs.changes.outputs.images != '[]'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - name: api
-            context: backend
-          - name: web
-            context: frontend
+        include: ${{ fromJSON(needs.changes.outputs.images) }}
     steps:
       - uses: actions/checkout@v5
 
@@ -79,3 +140,18 @@ jobs:
           push: false
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,scope=${{ matrix.name }},mode=max
+
+  # Single stable check for branch protection: require "CI result" only. Jobs above may be
+  # skipped (nothing changed), which would leave individually-required checks pending forever.
+  result:
+    name: CI result
+    needs: [changes, backend, frontend, docker-build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job failed or was cancelled
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          if grep -qE 'failure|cancelled' <<<"$RESULTS"; then exit 1; fi

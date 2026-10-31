@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, finalize, shareReplay, tap } from 'rxjs';
+import { Observable, finalize, map, shareReplay, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
     AccessToken,
@@ -98,8 +98,14 @@ export class AuthService {
         if (this.refreshInFlight$) return this.refreshInFlight$; // join the in-flight call
 
         this.refreshInFlight$ = this.http
-            .post<AccessToken>(`${this.baseUrl}/refresh`, {}, { withCredentials: true })
+            .post<AccessToken | null>(`${this.baseUrl}/refresh`, {}, { withCredentials: true })
             .pipe(
+                // 204 (null body) = no refresh cookie, i.e. no session. Fail like a 401 would,
+                // so the startup probe and the interceptor's logout path behave the same.
+                map((t) => {
+                    if (!t) throw new Error('No session to refresh');
+                    return t;
+                }),
                 tap((t) => this.accessToken.set(t)),
                 finalize(() => (this.refreshInFlight$ = null)), // reset so a later 401 can refresh again
                 shareReplay(1), // all concurrent subscribers share one call

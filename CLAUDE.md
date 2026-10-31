@@ -76,9 +76,12 @@ in `src/app/app.config.ts`, routes in `src/app/app.routes.ts`.
 
 ## CI/CD (`.github/workflows/`)
 
-- `ci.yml` — backend build+tests, frontend build+tests, Docker image builds. Runs on every
-  push to a non-`main` branch and on PRs; also reused (`workflow_call`) by `deploy.yml`.
-- `deploy.yml` — on push to `main`: CI → push images to GHCR → SSH deploy → smoke check.
+- `ci.yml` — runs on PRs only (plus `workflow_call` from `deploy.yml`). A `changes` job diffs
+  the commits and gates backend / frontend / docker-build jobs by path (`backend/**`,
+  `frontend/**`; workflow changes build everything). Branch protection should require only
+  the aggregate `CI result` job.
+- `deploy.yml` — on push to `main`: CI → build+push only the changed images → SSH deploy
+  (bumps only those `.env` image lines; DB backup only when the API changes) → smoke check.
   No Terraform/Ansible; the server is bootstrapped by hand once (`deploy/README.md`).
 
 ## Deploy (`deploy/`)
