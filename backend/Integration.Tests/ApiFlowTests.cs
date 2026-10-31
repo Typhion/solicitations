@@ -315,6 +315,63 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         (await _client.SendAsync(req)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task VerifiedAddress_ResolvesThePickedPlace_FreeTextIsNot()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+
+        // unknown place with verification on -> 409
+        using var bad = Authorized(HttpMethod.Post, "/api/solicitations", token,
+            NewSolicitation("Bad", new { country = "BE", city = "Gent", zipCode = "9000", street = "Nowhere", streetNumber = "1", validated = true }));
+        (await _client.SendAsync(bad)).StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        using var good = Authorized(HttpMethod.Post, "/api/solicitations", token,
+            NewSolicitation("Mapped", new { country = "BE", city = "x", zipCode = "x", street = "x", streetNumber = "1", validated = true, placeId = StubPlacesClient.PlaceId }));
+        var goodRes = await _client.SendAsync(good);
+        goodRes.StatusCode.Should().Be(HttpStatusCode.Created, await goodRes.Content.ReadAsStringAsync());
+        var created = await goodRes.Content.ReadFromJsonAsync<SolicitationWithLocationDto>();
+        created!.Location.Should().Be(new LocationDto("België", "Gent", "9000", "Veldstraat", "1", true,
+            StubPlacesClient.PlaceId, StubPlacesClient.Lat, StubPlacesClient.Lon));
+
+        // no 'validated' flag -> free text, no place
+        var freeText = await CreateSolicitationAsync(token, "Unverified");
+        using var get = Authorized(HttpMethod.Get, $"/api/solicitations/{freeText}", token);
+        var fetched = await (await _client.SendAsync(get)).Content.ReadFromJsonAsync<SolicitationWithLocationDto>();
+        fetched!.Location.Validated.Should().BeFalse();
+        fetched.Location.PlaceId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Places_AutocompleteAndDetails_AreProxied_AndValidated()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+
+        using var shortReq = Authorized(HttpMethod.Get, "/api/places/autocomplete?text=ve", token);
+        (await _client.SendAsync(shortReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var session = Guid.NewGuid();
+        using var req = Authorized(HttpMethod.Get, $"/api/places/autocomplete?text=veldstr&sessionToken={session}", token);
+        var res = await _client.SendAsync(req);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadFromJsonAsync<List<SuggestionDto>>()).Should().ContainSingle()
+            .Which.PlaceId.Should().Be(StubPlacesClient.PlaceId);
+
+        using var details = Authorized(HttpMethod.Get, $"/api/places/{StubPlacesClient.PlaceId}?sessionToken={session}", token);
+        var place = await (await _client.SendAsync(details)).Content.ReadFromJsonAsync<PlaceDto>();
+        place!.Street.Should().Be("Veldstraat");
+
+        using var unknown = Authorized(HttpMethod.Get, "/api/places/ChIJdoes-not-exist", token);
+        (await _client.SendAsync(unknown)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        using var injected = Authorized(HttpMethod.Get, "/api/places/abc%2F..%2Fsecret", token);
+        (await _client.SendAsync(injected)).StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+
+        using var config = Authorized(HttpMethod.Get, "/api/maps/config", token);
+        (await _client.SendAsync(config)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     // ---------- helpers ----------
 
     private async Task<Guid> CreateSolicitationAsync(string token, string jobName)
@@ -405,10 +462,10 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         return req;
     }
 
-    private static object NewSolicitation(string jobName) => new
+    private static object NewSolicitation(string jobName, object? location = null) => new
     {
         jobName,
-        location = new { country = "BE", city = "Gent", zipCode = "9000", street = "X", streetNumber = "1" },
+        location = location ?? new { country = "BE", city = "Gent", zipCode = "9000", street = "X", streetNumber = "1" },
         website = new { name = "LI", link = "https://li.com" },
         contact = new { name = "A", phoneNumber = "1", email = "a@a.com" }
     };
@@ -416,6 +473,11 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     private sealed record LoginDto(string Token, DateTime ExpiresAt, string RefreshToken);
     private sealed record SolicitationDto(Guid Id, string JobName);
     private sealed record CalendarMeetingDto(Guid Id, Guid SolicitationId, string JobName, DateTime ScheduledAtUtc);
+    private sealed record LocationDto(string Country, string City, string ZipCode, string Street, string StreetNumber,
+        bool Validated, string? PlaceId, double? Latitude, double? Longitude);
+    private sealed record SolicitationWithLocationDto(Guid Id, LocationDto Location);
+    private sealed record SuggestionDto(string PlaceId, string Text);
+    private sealed record PlaceDto(string PlaceId, string Street, string CountryCode);
     private sealed record CreatedInviteDto(Guid Id, string Link, DateTime ExpiresAtUtc, bool EmailSent);
     private sealed record InviteLookupDto(string Email, DateTime ExpiresAtUtc);
     private sealed record UserDto(Guid Id, string Username);

@@ -117,9 +117,45 @@
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]" formGroupName="location">
                 <div>
                     <h2 class="text-foreground text-sm font-semibold">Location</h2>
-                    <p class="text-muted mt-1 text-xs">Where the job is based.</p>
+                    <p class="text-muted mt-1 text-xs">The company's address.</p>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-6">
+                    <div class="flex flex-col gap-2 sm:col-span-6">
+                        <div appSegmented role="group" aria-label="Address type" class="self-start">
+                            <button
+                                appSegment
+                                type="button"
+                                [active]="form.controls.location.controls.validated.value"
+                                (click)="setValidated(true)"
+                            >
+                                Verified (EU)
+                            </button>
+                            <button
+                                appSegment
+                                type="button"
+                                [active]="!form.controls.location.controls.validated.value"
+                                (click)="setValidated(false)"
+                            >
+                                Free text
+                            </button>
+                        </div>
+                        @if (form.controls.location.controls.validated.value) {
+                            <app-address-search (picked)="applyPlace($event)" />
+                            @if (placeWarning(); as warning) {
+                                <p class="text-danger text-xs" role="alert">{{ warning }}</p>
+                            } @else {
+                                <p class="text-muted text-xs">
+                                    Search for the company or its address and pick a suggestion to
+                                    fill in the fields. Verified addresses appear on the map.
+                                </p>
+                            }
+                        } @else {
+                            <p class="text-muted text-xs">
+                                Saved as typed, without checking. Use this for addresses outside the
+                                EU. It won't appear on the map.
+                            </p>
+                        }
+                    </div>
                     <app-field
                         class="sm:col-span-4"
                         label="Street"

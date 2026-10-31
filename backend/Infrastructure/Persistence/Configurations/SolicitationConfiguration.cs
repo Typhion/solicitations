@@ -1,4 +1,5 @@
 using Domain.Solicitation;
+using Infrastructure.Places;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -23,6 +24,12 @@ internal sealed class SolicitationConfiguration : IEntityTypeConfiguration<Solic
             b.Property(p => p.ZipCode).IsRequired().HasMaxLength(20);
             b.Property(p => p.Street).IsRequired().HasMaxLength(200);
             b.Property(p => p.StreetNumber).IsRequired().HasMaxLength(20);
+            // Set only for Google-verified addresses; IsVerified is derived from PlaceId.
+            b.Property(p => p.PlaceId).HasMaxLength(300);
+            b.Property(p => p.Latitude);
+            b.Property(p => p.Longitude);
+            b.Property(p => p.VerifiedAtUtc);
+            b.Ignore(p => p.IsVerified);
         });
         builder.OwnsOne(s => s.Website, b =>
         {
@@ -36,6 +43,10 @@ internal sealed class SolicitationConfiguration : IEntityTypeConfiguration<Solic
             b.Property(p => p.Email).IsRequired().HasMaxLength(200);
         });
         
+        // Infra-only bookkeeping for LocationMaintenanceService: when it tried to verify this row's
+        // pre-existing free-text address, so misses aren't retried on every run.
+        builder.Property<DateTime?>(LocationMaintenanceService.BackfillAttemptedAtColumn);
+
         builder.Navigation(s => s.Location).IsRequired();
         builder.Navigation(s => s.Website).IsRequired();
         builder.Navigation(s => s.Contact).IsRequired();

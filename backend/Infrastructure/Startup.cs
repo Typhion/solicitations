@@ -1,10 +1,13 @@
 using Application.Common;
+using Application.Places;
 using Application.Invites;
+using Infrastructure.Places;
 using Infrastructure.Notifications;
 using Infrastructure.Persistence;
 using Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace Infrastructure;
@@ -16,8 +19,38 @@ public static class Startup
         services.AddPersistence(config);
         services.AddSecurity(config);
         services.AddNotifications(config);
+        services.AddPlaces(config);
 
         return services;
+    }
+
+    private static void AddPlaces(this IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<GoogleMapsSettings>()
+            .Bind(config.GetSection(GoogleMapsSettings.SectionName))
+            .Validate(s => s.RefreshAfterDays is > 0 and < 30,
+                "GoogleMaps:RefreshAfterDays must be 1-29 (Google allows caching coordinates for 30 days at most).")
+            .Validate(s => s.BiasRadiusMeters is > 0 and <= 50_000, "GoogleMaps:BiasRadiusMeters must be 1-50000.")
+            .ValidateOnStart();
+
+        services.AddMemoryCache();
+        services.TryAddSingleton(TimeProvider.System);
+
+        // Real Google once GoogleMaps:ServerApiKey is set; otherwise a client that verifies nothing.
+        services.AddHttpClient<GooglePlacesClient>((sp, http) =>
+        {
+            var s = sp.GetRequiredService<IOptions<GoogleMapsSettings>>().Value;
+            http.BaseAddress = new Uri(s.BaseUrl);
+            http.Timeout = TimeSpan.FromSeconds(s.TimeoutSeconds);
+        });
+        services.AddSingleton<DisabledPlacesClient>();
+        services.AddScoped<IPlacesClient>(sp =>
+            sp.GetRequiredService<IOptions<GoogleMapsSettings>>().Value.IsConfigured
+                ? sp.GetRequiredService<GooglePlacesClient>()
+                : sp.GetRequiredService<DisabledPlacesClient>());
+
+        // Refreshes coordinates (30-day limit) and verifies pre-existing addresses once.
+        services.AddHostedService<LocationMaintenanceService>();
     }
 
     private static void AddNotifications(this IServiceCollection services, IConfiguration config)

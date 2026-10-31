@@ -60,6 +60,30 @@ chmod 600 /opt/sollicitations/.env
 `SEED_ADMIN_PASSWORD` creates the first admin account. It needs at least 12 characters with
 upper, lower, digit and symbol. Change the password after your first login.
 
+`GOOGLE_MAPS_*` turn on address verification and the maps (see "Google Maps" below). They're
+optional: without the server key the API still starts, but addresses can only be saved as free text.
+
+#### Google Maps
+In the [Google Cloud console](https://console.cloud.google.com), in one project with billing
+enabled (a card is required; usage at this scale stays inside the free monthly caps):
+
+1. **APIs & Services → Library**: enable **Places API (New)** and **Maps JavaScript API**.
+2. **APIs & Services → Credentials → Create credentials → API key**, twice:
+   - **Server key** → `GOOGLE_MAPS_SERVER_KEY`. API restrictions: *Places API (New)* only.
+     Application restrictions: *IP addresses* → the server's public IP.
+   - **Browser key** → `GOOGLE_MAPS_BROWSER_KEY`. API restrictions: *Maps JavaScript API* only.
+     Application restrictions: *Websites* → `https://admin.typhion.com/*` (add
+     `http://localhost:4200/*` on a separate dev key).
+3. **Google Maps Platform → Map management → Create Map ID** (type *JavaScript*, *Vector*) →
+   `GOOGLE_MAPS_MAP_ID`.
+4. **Billing → Budgets & alerts**: add a small monthly budget (e.g. €5) with email alerts, and
+   optionally per-API quotas under **APIs & Services → (API) → Quotas**.
+5. Put the values in `/opt/sollicitations/.env` and run `docker compose up -d api`.
+
+Coordinates are re-fetched every 25 days because Google allows caching them for 30 days at most.
+On the first start with a key, existing addresses are looked up once in the background (log line
+`Location backfill: …`). EU matches are verified; the rest stay free text and aren't retried.
+
 ### 3. Deploy SSH key
 Use a separate key for this repo, so it can be revoked without affecting euro-millions:
 ```bash

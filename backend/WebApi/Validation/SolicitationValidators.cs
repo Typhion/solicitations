@@ -35,6 +35,7 @@ public sealed class LocationDtoValidator : AbstractValidator<LocationDto>
         RuleFor(x => x.ZipCode).NotEmpty().MaximumLength(20);
         RuleFor(x => x.Street).NotEmpty().MaximumLength(200);
         RuleFor(x => x.StreetNumber).NotEmpty().MaximumLength(20);
+        RuleFor(x => x.PlaceId).Matches("^[A-Za-z0-9_-]{10,300}$").When(x => x.PlaceId is not null);
     }
 }
 

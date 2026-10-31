@@ -6,7 +6,10 @@ import { Dialog } from '@angular/cdk/dialog';
 import { Router, RouterLink } from '@angular/router';
 import { filter, switchMap } from 'rxjs';
 import { PageTitle } from '../../../core/title/page-title';
+import { Badge } from '../../../shared/ui/badge/badge';
 import { Button } from '../../../shared/ui/button/button';
+import { MapComponent, MapPin } from '../../../shared/ui/map/map';
+import { dotColor } from '../../calendar/calendar-colors';
 import { ConfirmService } from '../../../shared/ui/dialog/confirm-dialog';
 import { Menu, MenuItem, MenuSeparator } from '../../../shared/ui/menu/menu';
 import { MeetingDialog, MeetingDialogData } from '../meeting-dialog/meeting-dialog';
@@ -20,6 +23,8 @@ import { StatusBadge } from '../status-badge/status-badge';
 @Component({
     selector: 'app-solicitation-detail',
     imports: [
+        Badge,
+        MapComponent,
         Button,
         StatusBadge,
         RouterLink,
@@ -56,6 +61,36 @@ export class SolicitationDetail {
             if (this.solicitation.hasValue()) this.pageTitle.set(this.solicitation.value().jobName);
         });
     }
+
+    /** The company's pin, when its address is verified; drives the small map. */
+    readonly locationPin = computed<MapPin[]>(() => {
+        if (!this.solicitation.hasValue()) return [];
+        const s = this.solicitation.value();
+        const { validated, latitude, longitude } = s.location;
+        if (!validated || latitude == null || longitude == null) return [];
+        return [
+            {
+                id: s.id,
+                latitude,
+                longitude,
+                label: s.website.name,
+                colorClass: dotColor(s.id),
+            },
+        ];
+    });
+
+    /** Google Maps link for the verified place (opens the company's listing when it has one). */
+    readonly mapsUrl = computed(() => {
+        if (!this.solicitation.hasValue()) return null;
+        const { latitude, longitude, placeId } = this.solicitation.value().location;
+        if (latitude == null || longitude == null || !placeId) return null;
+        const params = new URLSearchParams({
+            api: '1',
+            query: `${latitude},${longitude}`,
+            query_place_id: placeId,
+        });
+        return `https://www.google.com/maps/search/?${params}`;
+    });
 
     // Chronological, with a parsed date and whether it's already happened.
     readonly meetings = computed(() => {

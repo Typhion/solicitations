@@ -1,14 +1,18 @@
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Observable, map } from 'rxjs';
+import { Observable, map, merge } from 'rxjs';
 import { PageTitle } from '../../../core/title/page-title';
 import { Button } from '../../../shared/ui/button/button';
 import { Field } from '../../../shared/ui/field/field';
 import { Input } from '../../../shared/ui/input/input';
+import { Segment, Segmented } from '../../../shared/ui/segmented/segmented';
+import { AddressSearch } from '../address-search/address-search';
 import { SolicitationService } from '../solicitation.service';
-import { SolicitationStatus } from '../solicitation.models';
+import { PlaceAddress, SolicitationStatus } from '../solicitation.models';
+import { EU_COUNTRY_CODES } from '../places.service';
 import { statusOptions } from '../solicitation-status';
 
 // Same rules as backend WebApi/Validation/SolicitationValidators.cs.
@@ -20,7 +24,16 @@ const text = (max: number): [string, ValidatorFn[]] => [
 /** Create (`/solicitations/new`) and edit (`/solicitations/:id/edit`) page. */
 @Component({
     selector: 'app-solicitation-form',
-    imports: [ReactiveFormsModule, RouterLink, Button, Field, Input],
+    imports: [
+        ReactiveFormsModule,
+        RouterLink,
+        Button,
+        Field,
+        Input,
+        Segmented,
+        Segment,
+        AddressSearch,
+    ],
     templateUrl: './solicitation-form.html',
 })
 export class SolicitationForm implements OnInit {
@@ -60,8 +73,59 @@ export class SolicitationForm implements OnInit {
             zipCode: text(20),
             city: text(100),
             country: text(100),
+            // On: the server verifies the address with Google (EU) → shown on the map.
+            // Off: free text (e.g. outside the EU), never on the map.
+            validated: [true],
+            // The picked Google place. Cleared when the address is edited by hand; the server then
+            // looks up the typed address instead.
+            placeId: this.fb.control<string | null>(null),
         }),
     });
+
+    /** Set when the picked place can't be verified (outside the EU). */
+    readonly placeWarning = signal<string | null>(null);
+
+    constructor() {
+        const l = this.form.controls.location.controls;
+        merge(
+            l.street.valueChanges,
+            l.streetNumber.valueChanges,
+            l.zipCode.valueChanges,
+            l.city.valueChanges,
+            l.country.valueChanges,
+        )
+            .pipe(takeUntilDestroyed(inject(DestroyRef)))
+            .subscribe(() => {
+                l.placeId.setValue(null);
+                this.placeWarning.set(null);
+            });
+    }
+
+    /** Copies the picked place into the address fields (without clearing its place id). */
+    applyPlace(place: PlaceAddress): void {
+        const location = this.form.controls.location;
+        location.patchValue(
+            {
+                street: place.street,
+                streetNumber: place.streetNumber,
+                zipCode: place.zipCode,
+                city: place.city,
+                country: place.country,
+                placeId: place.placeId,
+            },
+            { emitEvent: false },
+        );
+        location.markAllAsTouched(); // surface a missing house number right away
+        this.placeWarning.set(
+            EU_COUNTRY_CODES.has(place.countryCode)
+                ? null
+                : 'This address is outside the EU and can only be saved as free text.',
+        );
+    }
+
+    setValidated(validated: boolean): void {
+        this.form.controls.location.controls.validated.setValue(validated);
+    }
 
     ngOnInit(): void {
         const id = this.id();
@@ -70,7 +134,8 @@ export class SolicitationForm implements OnInit {
         this.loading.set(true);
         this.service.get(id).subscribe({
             next: (s) => {
-                this.form.patchValue(s);
+                // no events: keeps the loaded place id (field edits would otherwise clear it)
+                this.form.patchValue(s, { emitEvent: false });
                 this.pageTitle.set(`Edit ${s.jobName}`);
                 this.loading.set(false);
             },
