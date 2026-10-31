@@ -19,6 +19,10 @@ describe('detectBrowserLanguage', () => {
     });
 });
 
+// The test runner shares one jsdom (and its localStorage) across spec files, so never leave a
+// stored language behind for the next spec.
+afterEach(() => localStorage.clear());
+
 describe('I18nService', () => {
     beforeEach(() => localStorage.clear());
 

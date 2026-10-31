@@ -5,6 +5,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { App } from './app';
 
 describe('App', () => {
+    afterEach(() => localStorage.clear());
+
     beforeEach(async () => {
         // jsdom has no matchMedia; the theme service reads prefers-color-scheme on startup.
         vi.stubGlobal(
@@ -15,6 +17,9 @@ describe('App', () => {
                 removeEventListener: vi.fn(),
             }),
         );
+
+        // Pin the language: otherwise it depends on the runner's locale or a value another spec stored.
+        localStorage.setItem('language', 'en');
 
         await TestBed.configureTestingModule({
             imports: [App],
