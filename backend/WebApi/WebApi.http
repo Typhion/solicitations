@@ -55,3 +55,45 @@ GET {{WebApi_HostAddress}}/api/me
         client.assert(response.status === 401, "Expected 401 but got " + response.status);
     });
 %}
+
+### Save the preferred language (expect 204; next login's token carries a "locale" claim)
+PUT {{WebApi_HostAddress}}/api/account/language
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{ "language": "nl" }
+
+> {%
+    client.test("language saved", function () {
+        client.assert(response.status === 204, "Expected 204 but got " + response.status);
+    });
+%}
+
+### Unsupported language, asked in Dutch (expect 400 with a Dutch message)
+PUT {{WebApi_HostAddress}}/api/account/language
+Content-Type: application/json
+Accept-Language: nl-BE
+Authorization: Bearer {{auth_token}}
+
+{ "language": "fr" }
+
+> {%
+    client.test("unsupported language returns 400", function () {
+        client.assert(response.status === 400, "Expected 400 but got " + response.status);
+    });
+    client.test("message is Dutch", function () {
+        client.assert(JSON.stringify(response.body).indexOf("Taal moet") >= 0, "Expected a Dutch message");
+    });
+%}
+
+### Not-found error in Dutch (expect 404, detail '"Sollicitatie" (…) is niet gevonden.')
+GET {{WebApi_HostAddress}}/api/solicitations/00000000-0000-0000-0000-000000000000
+Accept-Language: nl
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("detail is Dutch", function () {
+        client.assert(response.status === 404, "Expected 404 but got " + response.status);
+        client.assert(response.body.detail.indexOf("is niet gevonden") >= 0, "Expected a Dutch detail");
+    });
+%}

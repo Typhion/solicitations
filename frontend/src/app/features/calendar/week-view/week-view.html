@@ -3,7 +3,7 @@
     @for (day of days(); track day.date.getTime()) {
         <div class="border-border flex flex-col items-center gap-0.5 border-l py-2">
             <span class="text-muted text-xs font-medium tracking-wide uppercase">
-                {{ day.date | date: 'EEE' }}
+                {{ day.date | localDate: 'EEE' }}
             </span>
             <span
                 class="inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-base tabular-nums"
@@ -50,23 +50,27 @@
                         data-meeting
                         class="text-foreground focus-visible:ring-ring/40 absolute flex cursor-pointer flex-col overflow-hidden rounded-sm border-l-2 px-1.5 py-1 text-left text-xs leading-tight transition-colors focus-visible:z-10 focus-visible:ring-2 focus-visible:outline-none"
                         [class]="eventColor(e.meeting.solicitationId)"
-                        [class.opacity-60]="e.meeting.at < now()"
+                        [class.opacity-60]="e.meeting.end < now()"
                         [style.top.px]="e.top + 1"
                         [style.height.px]="e.height"
                         [style.left]="e.left"
                         [style.width]="e.width"
                         [attr.aria-label]="
-                            typeLabels[e.meeting.type] +
+                            (typeLabels[e.meeting.type] | t) +
                             ', ' +
                             e.meeting.jobName +
                             ', ' +
-                            (e.meeting.at | date: 'EEEE HH:mm')
+                            (e.meeting.at | localDate: 'EEEE HH:mm') +
+                            '–' +
+                            (e.meeting.end | localDate: 'HH:mm')
                         "
                         (click)="open(e.meeting, $event)"
                     >
                         <span class="truncate font-medium">{{ typeLabels[e.meeting.type] }}</span>
                         <span class="text-muted truncate">
-                            {{ e.meeting.at | date: 'HH:mm' }}
+                            {{ e.meeting.at | localDate: 'HH:mm' }}–{{
+                                e.meeting.end | localDate: 'HH:mm'
+                            }}
                             @if (!e.compact) {
                                 · {{ e.meeting.company }}
                             }

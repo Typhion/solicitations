@@ -1,10 +1,10 @@
 <div class="flex flex-col gap-6">
     <header class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h1 class="text-foreground text-xl font-semibold tracking-tight">Solicitations</h1>
-            <p class="text-muted mt-1 text-sm">
-                Your interviews and calls across all applications.
-            </p>
+            <h1 class="text-foreground text-xl font-semibold tracking-tight">
+                {{ 'solicitations.list.title' | t }}
+            </h1>
+            <p class="text-muted mt-1 text-sm">{{ 'calendar.intro' | t }}</p>
         </div>
         <app-solicitations-nav />
     </header>
@@ -15,16 +15,22 @@
             class="border-border flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2.5"
         >
             <div class="flex items-center gap-2">
-                <button appButton variant="secondary" size="sm" (click)="today()" title="Today (T)">
-                    Today
+                <button
+                    appButton
+                    variant="secondary"
+                    size="sm"
+                    (click)="today()"
+                    [title]="('calendar.today' | t) + ' (T)'"
+                >
+                    {{ 'calendar.today' | t }}
                 </button>
                 <div class="flex items-center">
                     <button
                         appButton
                         variant="ghost"
                         size="icon"
-                        aria-label="Previous"
-                        title="Previous (←)"
+                        [attr.aria-label]="'common.previous' | t"
+                        [title]="('common.previous' | t) + ' (←)'"
                         (click)="previous()"
                     >
                         <svg
@@ -45,8 +51,8 @@
                         appButton
                         variant="ghost"
                         size="icon"
-                        aria-label="Next"
-                        title="Next (→)"
+                        [attr.aria-label]="'common.next' | t"
+                        [title]="('common.next' | t) + ' (→)'"
                         (click)="next()"
                     >
                         <svg
@@ -68,7 +74,9 @@
                     {{ title() }}
                 </h2>
                 @if (meetings.isLoading()) {
-                    <span class="text-muted text-xs" aria-hidden="true">Loading…</span>
+                    <span class="text-muted text-xs" aria-hidden="true">{{
+                        'common.loading' | t
+                    }}</span>
                 }
             </div>
 
@@ -76,11 +84,11 @@
                 <select
                     appInput
                     class="w-48"
-                    aria-label="Filter by solicitation"
+                    [attr.aria-label]="'calendar.filterBySolicitation' | t"
                     [value]="solicitation() ?? ''"
                     (change)="setSolicitation($any($event.target).value)"
                 >
-                    <option value="">All solicitations</option>
+                    <option value="">{{ 'calendar.allSolicitations' | t }}</option>
                     @if (solicitationOptions.hasValue()) {
                         @for (s of solicitationOptions.value().items; track s.id) {
                             <option [value]="s.id" [selected]="s.id === solicitation()">
@@ -93,23 +101,22 @@
                     appInput
                     type="search"
                     class="w-52"
-                    placeholder="Search meetings…"
-                    aria-label="Search meetings"
+                    [placeholder]="'calendar.searchPlaceholder' | t"
+                    [attr.aria-label]="'calendar.search' | t"
                     [value]="search()"
                     (input)="onSearch($any($event.target).value)"
                 />
-                <div appSegmented role="group" aria-label="Calendar view">
+                <div appSegmented role="group" [attr.aria-label]="'calendar.viewLabel' | t">
                     @for (v of views; track v) {
                         <button
                             type="button"
                             appSegment
-                            class="capitalize"
                             [active]="currentView() === v"
                             [attr.aria-pressed]="currentView() === v"
-                            [title]="v + ' (' + v[0].toUpperCase() + ')'"
+                            [title]="(viewLabels[v] | t) + ' (' + v[0].toUpperCase() + ')'"
                             (click)="setView(v)"
                         >
-                            {{ v }}
+                            {{ viewLabels[v] | t }}
                         </button>
                     }
                 </div>
@@ -120,9 +127,9 @@
             <div
                 class="border-border bg-danger/10 flex items-center justify-between gap-3 border-b px-4 py-2.5"
             >
-                <p class="text-danger text-sm">Could not load meetings.</p>
+                <p class="text-danger text-sm">{{ 'calendar.loadError' | t }}</p>
                 <button appButton variant="secondary" size="sm" (click)="meetings.reload()">
-                    Retry
+                    {{ 'common.retry' | t }}
                 </button>
             </div>
         }
@@ -132,12 +139,15 @@
                 class="border-border flex items-center justify-between gap-3 border-b px-4 py-2 text-sm"
             >
                 <p class="text-muted">
-                    {{ visibleMeetings().length }}
-                    {{ visibleMeetings().length === 1 ? 'meeting matches' : 'meetings match' }}
-                    in this {{ currentView() === 'week' ? 'week' : 'month' }}
+                    {{
+                        (currentView() === 'week'
+                            ? 'calendar.matchesWeek'
+                            : 'calendar.matchesMonth'
+                        ) | t: { count: visibleMeetings().length }
+                    }}
                 </p>
                 <button appButton variant="ghost" size="sm" (click)="clearFilters()">
-                    Clear filters
+                    {{ 'calendar.clearFilters' | t }}
                 </button>
             </div>
         }
@@ -186,7 +196,7 @@
         @let m = sel.meeting;
         <div
             role="dialog"
-            [attr.aria-label]="typeLabels[m.type]"
+            [attr.aria-label]="typeLabels[m.type] | t"
             class="border-border bg-surface shadow-overlay flex w-80 flex-col gap-3 rounded-lg border p-4"
         >
             <div class="flex items-start gap-2.5">
@@ -195,9 +205,13 @@
                     [class]="dotColor(m.solicitationId)"
                 ></span>
                 <div class="min-w-0 flex-1">
-                    <p class="text-foreground text-base font-semibold">{{ typeLabels[m.type] }}</p>
+                    <p class="text-foreground text-base font-semibold">
+                        {{ typeLabels[m.type] | t }}
+                    </p>
                     <p class="text-muted mt-0.5 text-sm">
-                        {{ m.at | date: 'EEEE d MMMM y' }} · {{ m.at | date: 'HH:mm' }}
+                        {{ m.at | localDate: 'EEEE d MMMM y' }} · {{ m.at | localDate: 'HH:mm' }}–{{
+                            m.end | localDate: 'HH:mm'
+                        }}
                     </p>
                 </div>
                 <button
@@ -205,7 +219,7 @@
                     variant="ghost"
                     size="icon"
                     class="-mt-1 -mr-1"
-                    aria-label="Close"
+                    [attr.aria-label]="'common.close' | t"
                     (click)="close()"
                 >
                     <svg
@@ -226,24 +240,26 @@
 
             <dl class="flex flex-col gap-2 text-sm">
                 <div class="flex gap-3">
-                    <dt class="text-muted w-16 shrink-0">Where</dt>
+                    <dt class="text-muted w-20 shrink-0">{{ 'meetings.dialog.where' | t }}</dt>
                     <dd class="text-foreground">
                         @if (m.isOnline) {
-                            Online · {{ m.onlineTool }}
+                            {{ 'meetings.online' | t }} · {{ m.onlineTool }}
                         } @else {
-                            In person · {{ m.city }}
+                            {{ 'meetings.inPerson' | t }} · {{ m.city }}
                         }
                     </dd>
                 </div>
                 <div class="flex gap-3">
-                    <dt class="text-muted w-16 shrink-0">Job</dt>
+                    <dt class="text-muted w-20 shrink-0">{{ 'solicitations.fields.job' | t }}</dt>
                     <dd class="text-foreground min-w-0">
                         <div class="truncate font-medium">{{ m.jobName }}</div>
                         <div class="text-muted truncate">{{ m.company }}</div>
                     </dd>
                 </div>
                 <div class="flex items-center gap-3">
-                    <dt class="text-muted w-16 shrink-0">Status</dt>
+                    <dt class="text-muted w-20 shrink-0">
+                        {{ 'solicitations.fields.status' | t }}
+                    </dt>
                     <dd><app-status-badge [status]="m.status" /></dd>
                 </div>
             </dl>
@@ -255,7 +271,7 @@
                 class="self-start"
                 [routerLink]="['/solicitations', m.solicitationId]"
             >
-                Open solicitation
+                {{ 'calendar.openSolicitation' | t }}
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="14"

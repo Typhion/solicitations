@@ -9,13 +9,13 @@ const solicitationForm = () =>
         (m) => m.SolicitationForm,
     );
 
-// `title` sets the browser tab via AppTitleStrategy ("Page · Solicitations"). Detail/edit pages
-// refine theirs with the job name once loaded (PageTitle service).
+// `title` is a translation key; AppTitleStrategy turns it into the browser tab ("Page · Solicitations").
+// Detail/edit pages refine theirs with the job name once loaded (PageTitle service).
 export const routes: Routes = [
-    { path: 'login', title: 'Sign in', component: Login },
+    { path: 'login', title: 'titles.signIn', component: Login },
     {
         path: 'register',
-        title: 'Create account',
+        title: 'titles.register',
         loadComponent: () => import('./features/auth/register/register').then((m) => m.Register),
     },
     {
@@ -24,17 +24,17 @@ export const routes: Routes = [
         children: [
             {
                 path: '',
-                title: 'Solicitations', // the app name alone, no suffix
+                title: 'app.name', // the app name alone, no suffix
                 loadComponent: () =>
                     import('./features/solicitations/solicitation-list/solicitation-list').then(
                         (m) => m.SolicitationList,
                     ),
             },
-            { path: 'new', title: 'New solicitation', loadComponent: solicitationForm },
+            { path: 'new', title: 'titles.newSolicitation', loadComponent: solicitationForm },
             // before ':id', or "calendar"/"map" would be read as a solicitation id
             {
                 path: 'calendar',
-                title: 'Calendar',
+                title: 'titles.calendar',
                 loadComponent: () =>
                     import('./features/calendar/meeting-calendar/meeting-calendar').then(
                         (m) => m.MeetingCalendar,
@@ -42,7 +42,7 @@ export const routes: Routes = [
             },
             {
                 path: 'map',
-                title: 'Map',
+                title: 'titles.map',
                 loadComponent: () =>
                     import('./features/solicitations/solicitation-map/solicitation-map').then(
                         (m) => m.SolicitationMap,
@@ -50,24 +50,24 @@ export const routes: Routes = [
             },
             {
                 path: ':id',
-                title: 'Solicitation',
+                title: 'titles.solicitation',
                 loadComponent: () =>
                     import('./features/solicitations/solicitation-detail/solicitation-detail').then(
                         (m) => m.SolicitationDetail,
                     ),
             },
-            { path: ':id/edit', title: 'Edit solicitation', loadComponent: solicitationForm },
+            { path: ':id/edit', title: 'titles.editSolicitation', loadComponent: solicitationForm },
         ],
     },
     {
         path: 'profile',
-        title: 'Profile',
+        title: 'titles.profile',
         canActivate: [authGuard],
         loadComponent: () => import('./features/profile/profile').then((m) => m.ProfilePage),
     },
     {
         path: 'admin/users',
-        title: 'Users',
+        title: 'titles.users',
         canActivate: [authGuard, adminGuard],
         loadComponent: () => import('./features/admin/users/users').then((m) => m.Users),
     },

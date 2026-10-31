@@ -1,18 +1,19 @@
 using Application.Common;
 using Application.Users;
 using FluentValidation;
+using Microsoft.Extensions.Localization;
 using WebApi.Api;
 
 namespace WebApi.Validation;
 
 public sealed class GrantRoleRequestValidator : AbstractValidator<GrantRoleRequest>
 {
-    public GrantRoleRequestValidator()
+    public GrantRoleRequestValidator(IStringLocalizer<Messages> localizer)
     {
         RuleFor(x => x.Role)
             .NotEmpty()
             .Must(Roles.Assignable.Contains)
-            .WithMessage("Role must be one of: " + string.Join(", ", Roles.Assignable));
+            .WithMessage(_ => localizer["Role must be one of: {0}.", string.Join(", ", Roles.Assignable)]);
     }
 }
 

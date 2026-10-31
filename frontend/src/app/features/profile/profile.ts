@@ -16,17 +16,21 @@ import {
     PasswordConfirmData,
     PasswordConfirmDialog,
 } from './password-confirm-dialog/password-confirm-dialog';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { TranslationKey } from '../../core/i18n/translation.types';
 
 /** `/profile` — the signed-in user's account, password and two-factor authentication. */
 @Component({
     selector: 'app-profile',
-    imports: [ReactiveFormsModule, Badge, Button, Field, Input],
+    imports: [ReactiveFormsModule, Badge, Button, Field, Input, TranslatePipe],
     templateUrl: './profile.html',
 })
 export class ProfilePage {
     private readonly fb = inject(FormBuilder);
     private readonly account = inject(AccountService);
     private readonly dialog = inject(Dialog);
+    private readonly i18n = inject(I18nService);
 
     readonly passwordHint = PASSWORD_HINT;
 
@@ -134,10 +138,9 @@ export class ProfilePage {
 
     disable(): void {
         this.confirmWithPassword({
-            title: 'Disable two-factor authentication?',
-            message:
-                'Signing in will only need your password. Your authenticator app and recovery codes stop working.',
-            confirmLabel: 'Disable',
+            title: this.i18n.t('profile.disableTitle'),
+            message: this.i18n.t('profile.disableMessage'),
+            confirmLabel: this.i18n.t('profile.disable'),
             danger: true,
             action: (password) => this.account.disableTwoFactor(password).pipe(map(() => true)),
         }).subscribe((done) => {
@@ -149,9 +152,9 @@ export class ProfilePage {
 
     regenerateCodes(): void {
         this.confirmWithPassword({
-            title: 'Generate new recovery codes?',
-            message: 'Your current recovery codes will stop working.',
-            confirmLabel: 'Generate',
+            title: this.i18n.t('profile.regenerateTitle'),
+            message: this.i18n.t('profile.regenerateMessage'),
+            confirmLabel: this.i18n.t('profile.generate'),
             action: (password) =>
                 this.account.regenerateRecoveryCodes(password).pipe(map((r) => r.recoveryCodes)),
         }).subscribe((codes) => {
@@ -179,7 +182,7 @@ export class ProfilePage {
     downloadCodes(): void {
         const codes = this.recoveryCodes();
         if (!codes) return;
-        const text = `Solicitations recovery codes\nEach code can be used once.\n\n${codes.join('\n')}\n`;
+        const text = `${this.i18n.t('profile.codesFileHeader')}\n\n${codes.join('\n')}\n`;
         const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
         const a = document.createElement('a');
         a.href = url;
@@ -201,7 +204,15 @@ export class ProfilePage {
         // 400 from the ValidationFilter carries an `errors` map; account failures carry `detail`.
         const fieldErrors = err.error?.errors as Record<string, string[]> | undefined;
         if (fieldErrors) return Object.values(fieldErrors).flat().join(' ');
-        if (err.status === 429) return 'Too many attempts. Wait a minute and try again.';
-        return err.error?.detail ?? 'Something went wrong. Please try again.';
+        if (err.status === 429) return this.i18n.t('errors.tooManyAttempts');
+        return err.error?.detail ?? this.i18n.t('errors.generic');
+    }
+
+    protected roleLabel(role: string): TranslationKey {
+        return role === 'Admin'
+            ? 'roles.admin'
+            : role === 'Member'
+              ? 'roles.member'
+              : 'roles.unknown';
     }
 }

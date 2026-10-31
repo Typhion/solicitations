@@ -60,6 +60,9 @@ export class AuthService {
 
     readonly isAdmin = computed(() => this.roles().includes('Admin'));
 
+    /** Saved UI language from the `locale` claim; null when the user hasn't chosen one. */
+    readonly locale = computed(() => (this.claims()['locale'] as string | undefined) ?? null);
+
     get token(): string | null {
         return this.accessToken()?.token ?? null;
     }

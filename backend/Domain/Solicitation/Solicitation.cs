@@ -39,18 +39,18 @@ public class Solicitation : Entity
 
     public void ChangeStatus(SolicitationStatus status) => Status = status;
     
-    public Meeting.Meeting AddMeeting(DateTime scheduledAtUtc, Meeting.MeetingType type, bool isOnline, string? onlineTool)
+    public Meeting.Meeting AddMeeting(DateTime scheduledAtUtc, DateTime endsAtUtc, Meeting.MeetingType type, bool isOnline, string? onlineTool)
     {
-        var meeting = new Meeting.Meeting(scheduledAtUtc, type, isOnline, onlineTool);
+        var meeting = new Meeting.Meeting(scheduledAtUtc, endsAtUtc, type, isOnline, onlineTool);
         _meetings.Add(meeting);
         return meeting;
     }
 
-    public void UpdateMeeting(Guid meetingId, DateTime scheduledAtUtc, Meeting.MeetingType type, bool isOnline, string? onlineTool)
+    public void UpdateMeeting(Guid meetingId, DateTime scheduledAtUtc, DateTime endsAtUtc, Meeting.MeetingType type, bool isOnline, string? onlineTool)
     {
         var meeting = _meetings.FirstOrDefault(m => m.Id == meetingId)
             ?? throw new DomainException("Meeting not found on this solicitation.");
-        meeting.Update(scheduledAtUtc, type, isOnline, onlineTool);
+        meeting.Update(scheduledAtUtc, endsAtUtc, type, isOnline, onlineTool);
     }
 
     public void RemoveMeeting(Guid meetingId)

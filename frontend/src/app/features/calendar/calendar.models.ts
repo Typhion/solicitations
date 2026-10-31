@@ -10,15 +10,17 @@ export interface CalendarMeetingDto {
     company: string;
     status: SolicitationStatus;
     scheduledAtUtc: string;
+    endsAtUtc: string;
     type: MeetingType;
     isOnline: boolean;
     onlineTool: string | null;
     city: string;
 }
 
-/** A meeting with its start parsed to a local `Date`, ready for the views. */
+/** A meeting with its start and end parsed to local `Date`s, ready for the views. */
 export interface CalendarMeeting extends CalendarMeetingDto {
     at: Date;
+    end: Date;
 }
 
 /** Emitted when a meeting is clicked; the element anchors the details popover. */

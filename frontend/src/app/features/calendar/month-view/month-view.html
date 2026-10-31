@@ -1,7 +1,7 @@
 <div class="border-border grid grid-cols-7 border-b">
     @for (d of weekdays; track $index) {
         <div class="text-muted px-2 py-2 text-xs font-medium tracking-wide uppercase">
-            {{ d | date: 'EEE' }}
+            {{ d | localDate: 'EEE' }}
         </div>
     }
 </div>
@@ -23,10 +23,14 @@
                           ? 'text-foreground hover:bg-surface-hover'
                           : 'text-muted hover:bg-surface-hover'
                 "
-                [attr.aria-label]="'Show week of ' + (day.date | date: 'd MMMM y')"
+                [attr.aria-label]="
+                    'calendar.showWeekOf' | t: { date: day.date | localDate: 'd MMMM y' }
+                "
                 (click)="showDay.emit(day.date)"
             >
-                {{ day.date.getDate() === 1 ? (day.date | date: 'd MMM') : day.date.getDate() }}
+                {{
+                    day.date.getDate() === 1 ? (day.date | localDate: 'd MMM') : day.date.getDate()
+                }}
             </button>
 
             @for (m of day.visible; track m.id) {
@@ -35,13 +39,21 @@
                     data-meeting
                     class="text-foreground focus-visible:ring-ring/40 flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm border-l-2 px-1.5 py-0.5 text-left text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
                     [class]="eventColor(m.solicitationId)"
-                    [class.opacity-60]="m.at < now()"
+                    [class.opacity-60]="m.end < now()"
                     [attr.aria-label]="
-                        typeLabels[m.type] + ', ' + m.jobName + ', ' + (m.at | date: 'HH:mm')
+                        (typeLabels[m.type] | t) +
+                        ', ' +
+                        m.jobName +
+                        ', ' +
+                        (m.at | localDate: 'HH:mm') +
+                        '–' +
+                        (m.end | localDate: 'HH:mm')
                     "
                     (click)="open(m, $event)"
                 >
-                    <span class="text-muted shrink-0 tabular-nums">{{ m.at | date: 'HH:mm' }}</span>
+                    <span class="text-muted shrink-0 tabular-nums">{{
+                        m.at | localDate: 'HH:mm'
+                    }}</span>
                     <span class="truncate">
                         <span class="font-medium">{{ typeLabels[m.type] }}</span>
                         <span class="text-muted"> · {{ m.company }}</span>
@@ -55,7 +67,7 @@
                     class="text-muted hover:bg-surface-hover hover:text-foreground cursor-pointer self-start rounded-sm px-1.5 py-0.5 text-xs font-medium transition-colors"
                     (click)="showDay.emit(day.date)"
                 >
-                    +{{ day.hidden }} more
+                    {{ 'calendar.more' | t: { count: day.hidden } }}
                 </button>
             }
         </div>

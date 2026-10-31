@@ -95,13 +95,13 @@ export interface PositionedEvent<T> {
 
 /**
  * Side-by-side columns for events in one day column. Each event occupies
- * [start, start + durationMinutes); events that overlap (directly or through a
+ * [start, start + duration); events that overlap (directly or through a
  * chain) form a cluster and share its column count, like Google Calendar.
  */
 export function layoutDay<T>(
     items: T[],
     startMinutes: (item: T) => number,
-    durationMinutes = 60,
+    durationMinutes: (item: T) => number = () => 60,
 ): PositionedEvent<T>[] {
     const sorted = [...items].sort((a, b) => startMinutes(a) - startMinutes(b));
     const result: PositionedEvent<T>[] = [];
@@ -117,16 +117,17 @@ export function layoutDay<T>(
 
     for (const item of sorted) {
         const start = startMinutes(item);
+        const end = start + durationMinutes(item);
         if (start >= clusterEnd) closeCluster();
 
         let column = columnEnds.findIndex((end) => end <= start);
         if (column === -1) column = columnEnds.length;
-        columnEnds[column] = start + durationMinutes;
+        columnEnds[column] = end;
 
         const positioned = { item, column, columns: 1 };
         cluster.push(positioned);
         result.push(positioned);
-        clusterEnd = Math.max(clusterEnd, start + durationMinutes);
+        clusterEnd = Math.max(clusterEnd, end);
     }
     closeCluster();
     return result;

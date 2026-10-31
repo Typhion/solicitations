@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Application.Common;
 using Application.Places;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -36,7 +38,7 @@ internal sealed partial class GooglePlacesClient(
         var body = new
         {
             input = text,
-            languageCode = _settings.Language,
+            languageCode = Language,
             regionCode = _settings.RegionCode,
             sessionToken,
             locationBias = new
@@ -81,9 +83,10 @@ internal sealed partial class GooglePlacesClient(
         // Place ids are opaque but URL-safe; anything else never reaches Google's URL.
         if (!PlaceIdPattern().IsMatch(placeId)) return null;
 
-        if (cache.TryGetValue(CacheKey(placeId), out PlaceAddress? cached)) return cached;
+        var language = Language;
+        if (cache.TryGetValue(CacheKey(placeId, language), out PlaceAddress? cached)) return cached;
 
-        var url = $"v1/places/{placeId}?languageCode={_settings.Language}&regionCode={_settings.RegionCode}";
+        var url = $"v1/places/{placeId}?languageCode={language}&regionCode={_settings.RegionCode}";
         if (!string.IsNullOrWhiteSpace(sessionToken)) url += $"&sessionToken={Uri.EscapeDataString(sessionToken)}";
 
         Place? place;
@@ -102,7 +105,7 @@ internal sealed partial class GooglePlacesClient(
         }
 
         var address = ToAddress(place);
-        if (address is not null) cache.Set(CacheKey(placeId), address, DetailsCacheTime);
+        if (address is not null) cache.Set(CacheKey(placeId, language), address, DetailsCacheTime);
         return address;
     }
 
@@ -111,7 +114,7 @@ internal sealed partial class GooglePlacesClient(
         var body = new
         {
             textQuery = $"{query.Street} {query.StreetNumber}, {query.ZipCode} {query.City}, {query.Country}",
-            languageCode = _settings.Language,
+            languageCode = Language,
             regionCode = _settings.RegionCode,
             pageSize = 1,
         };
@@ -174,7 +177,21 @@ internal sealed partial class GooglePlacesClient(
     private static bool IsProviderFailure(Exception ex, CancellationToken ct)
         => ex is HttpRequestException or TaskCanceledException or JsonException && !ct.IsCancellationRequested;
 
-    private static string CacheKey(string placeId) => $"google-place:{placeId}";
+    // Names differ per language (Brussel / Bruxelles), so the language is part of the key.
+    private static string CacheKey(string placeId, string language) => $"google-place:{language}:{placeId}";
+
+    /// <summary>
+    /// The request's UI language (set by request localization from Accept-Language), so names come
+    /// back in the language the user reads the app in.
+    /// </summary>
+    internal static string Language
+    {
+        get
+        {
+            var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+            return Languages.All.Contains(language) ? language : Languages.Default;
+        }
+    }
 
     [GeneratedRegex("^[A-Za-z0-9_-]{10,300}$")]
     private static partial Regex PlaceIdPattern();

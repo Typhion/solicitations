@@ -6,6 +6,8 @@ import { Observable } from 'rxjs';
 import { Button } from '../../../shared/ui/button/button';
 import { Field } from '../../../shared/ui/field/field';
 import { Input } from '../../../shared/ui/input/input';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
 
 export interface PasswordConfirmData<T> {
     title: string;
@@ -22,7 +24,7 @@ export interface PasswordConfirmData<T> {
  */
 @Component({
     selector: 'app-password-confirm-dialog',
-    imports: [ReactiveFormsModule, Button, Field, Input],
+    imports: [ReactiveFormsModule, Button, Field, Input, TranslatePipe],
     host: {
         class: 'flex flex-col rounded-lg border border-border bg-surface shadow-overlay',
     },
@@ -33,7 +35,10 @@ export interface PasswordConfirmData<T> {
                     <h2 class="text-foreground text-base font-semibold">{{ data.title }}</h2>
                     <p class="text-muted mt-1.5 text-sm">{{ data.message }}</p>
                 </div>
-                <app-field label="Current password" [control]="form.controls.password">
+                <app-field
+                    [label]="'profile.currentPassword' | t"
+                    [control]="form.controls.password"
+                >
                     <input
                         appInput
                         type="password"
@@ -47,7 +52,7 @@ export interface PasswordConfirmData<T> {
             </div>
             <footer class="border-border flex justify-end gap-2 border-t px-5 py-3">
                 <button appButton type="button" variant="secondary" (click)="ref.close()">
-                    Cancel
+                    {{ 'common.cancel' | t }}
                 </button>
                 <button
                     appButton
@@ -55,7 +60,7 @@ export interface PasswordConfirmData<T> {
                     [variant]="data.danger ? 'danger' : 'primary'"
                     [disabled]="busy()"
                 >
-                    {{ busy() ? 'Working…' : data.confirmLabel }}
+                    {{ busy() ? ('common.working' | t) : data.confirmLabel }}
                 </button>
             </footer>
         </form>
@@ -64,6 +69,7 @@ export interface PasswordConfirmData<T> {
 export class PasswordConfirmDialog<T> {
     protected readonly data = inject<PasswordConfirmData<T>>(DIALOG_DATA);
     protected readonly ref = inject<DialogRef<T>>(DialogRef);
+    private readonly i18n = inject(I18nService);
 
     readonly busy = signal(false);
     readonly error = signal<string | null>(null);
@@ -81,7 +87,7 @@ export class PasswordConfirmDialog<T> {
         this.data.action(this.form.getRawValue().password).subscribe({
             next: (result) => this.ref.close(result),
             error: (err: HttpErrorResponse) => {
-                this.error.set(err.error?.detail ?? 'Something went wrong. Please try again.');
+                this.error.set(err.error?.detail ?? this.i18n.t('errors.generic'));
                 this.busy.set(false);
             },
         });

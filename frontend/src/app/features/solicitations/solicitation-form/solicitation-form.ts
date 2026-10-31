@@ -14,6 +14,9 @@ import { SolicitationService } from '../solicitation.service';
 import { PlaceAddress, SolicitationStatus } from '../solicitation.models';
 import { EU_COUNTRY_CODES } from '../places.service';
 import { statusOptions } from '../solicitation-status';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslationKey } from '../../../core/i18n/translation.types';
 
 // Same rules as backend WebApi/Validation/SolicitationValidators.cs.
 const text = (max: number): [string, ValidatorFn[]] => [
@@ -33,6 +36,7 @@ const text = (max: number): [string, ValidatorFn[]] => [
         Segmented,
         Segment,
         AddressSearch,
+        TranslatePipe,
     ],
     templateUrl: './solicitation-form.html',
 })
@@ -41,6 +45,7 @@ export class SolicitationForm implements OnInit {
     private readonly service = inject(SolicitationService);
     private readonly router = inject(Router);
     private readonly pageTitle = inject(PageTitle);
+    private readonly i18n = inject(I18nService);
 
     /** Route param, bound via withComponentInputBinding(). Absent on create. */
     readonly id = input<string>();
@@ -83,7 +88,7 @@ export class SolicitationForm implements OnInit {
     });
 
     /** Set when the picked place can't be verified (outside the EU). */
-    readonly placeWarning = signal<string | null>(null);
+    readonly placeWarning = signal<TranslationKey | null>(null);
 
     constructor() {
         const l = this.form.controls.location.controls;
@@ -117,9 +122,7 @@ export class SolicitationForm implements OnInit {
         );
         location.markAllAsTouched(); // surface a missing house number right away
         this.placeWarning.set(
-            EU_COUNTRY_CODES.has(place.countryCode)
-                ? null
-                : 'This address is outside the EU and can only be saved as free text.',
+            EU_COUNTRY_CODES.has(place.countryCode) ? null : 'solicitations.form.outsideEu',
         );
     }
 
@@ -136,7 +139,7 @@ export class SolicitationForm implements OnInit {
             next: (s) => {
                 // no events: keeps the loaded place id (field edits would otherwise clear it)
                 this.form.patchValue(s, { emitEvent: false });
-                this.pageTitle.set(`Edit ${s.jobName}`);
+                this.pageTitle.setKey('titles.editNamed', { name: s.jobName });
                 this.loading.set(false);
             },
             error: () => {
@@ -175,7 +178,7 @@ export class SolicitationForm implements OnInit {
         // 400 from the ValidationFilter: ProblemDetails with an `errors` map of field → messages.
         const fieldErrors = err.error?.errors as Record<string, string[]> | undefined;
         if (err.status === 400 && fieldErrors) return Object.values(fieldErrors).flat();
-        if (err.status === 404) return ['This solicitation no longer exists.'];
-        return [err.error?.detail ?? 'Something went wrong. Please try again.'];
+        if (err.status === 404) return [this.i18n.t('solicitations.gone')];
+        return [err.error?.detail ?? this.i18n.t('errors.generic')];
     }
 }

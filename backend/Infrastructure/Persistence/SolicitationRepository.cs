@@ -21,13 +21,14 @@ internal sealed class SolicitationRepository(SolicitationsDbContext context) : I
         => await context.Solicitations.AsNoTracking()
             .Where(s => s.OwnerId == ownerId && (solicitationId == null || s.Id == solicitationId))
             .SelectMany(
-                s => s.Meetings.Where(m => m.ScheduledAtUtc >= fromUtc && m.ScheduledAtUtc < toUtc),
+                // overlap, not just start, so a meeting crossing the range edge still shows
+                s => s.Meetings.Where(m => m.ScheduledAtUtc < toUtc && m.EndsAtUtc > fromUtc),
                 (s, m) => new { s, m })
             // order before projecting: EF can't translate members of a constructor-projected record
             .OrderBy(x => x.m.ScheduledAtUtc)
             .Select(x => new CalendarMeetingDto(
                 x.m.Id, x.s.Id, x.s.JobName, x.s.Website.Name, x.s.Status,
-                x.m.ScheduledAtUtc, x.m.Type, x.m.IsOnline, x.m.OnlineTool, x.s.Location.City))
+                x.m.ScheduledAtUtc, x.m.EndsAtUtc, x.m.Type, x.m.IsOnline, x.m.OnlineTool, x.s.Location.City))
             .ToListAsync(ct);
 
     public Task<int> CountAsync(Guid ownerId, CancellationToken ct)

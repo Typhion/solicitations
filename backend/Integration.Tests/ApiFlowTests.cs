@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
@@ -303,6 +304,87 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         onlySecond.Should().ContainSingle().Which.SolicitationId.Should().Be(second);
     }
 
+    [Fact]
+    public async Task Language_SavedOnAccount_IsIssuedAsLocaleClaim()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+        LocaleOf(token).Should().BeNull(); // not chosen yet → the SPA uses the browser language
+
+        using var put = Authorized(HttpMethod.Put, "/api/account/language", token, new { language = "nl" });
+        (await _client.SendAsync(put)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // a preference, not a credential: the current token stays valid
+        using var me = Authorized(HttpMethod.Get, "/api/account", token);
+        (await _client.SendAsync(me)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        LocaleOf(await LoginAsync(username, password)).Should().Be("nl");
+    }
+
+    [Fact]
+    public async Task Language_Unsupported_ReturnsBadRequest_InTheRequestedLanguage()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+
+        using var put = Authorized(HttpMethod.Put, "/api/account/language", token, new { language = "fr" });
+        put.Headers.AcceptLanguage.ParseAdd("nl-BE");
+        var res = await _client.SendAsync(put);
+
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await res.Content.ReadAsStringAsync()).Should().Contain("Taal moet een van de volgende zijn: en, nl.");
+    }
+
+    [Theory]
+    [InlineData("nl", "\"Sollicitatie\"", "is niet gevonden.")]
+    [InlineData("fr", "\"Solicitation\"", "was not found.")] // unsupported → English
+    [InlineData(null, "\"Solicitation\"", "was not found.")]
+    public async Task ErrorDetails_FollowAcceptLanguage(string? language, string name, string text)
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+
+        using var req = Authorized(HttpMethod.Get, $"/api/solicitations/{Guid.NewGuid()}", token);
+        if (language is not null) req.Headers.AcceptLanguage.ParseAdd(language);
+        var res = await _client.SendAsync(req);
+
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var problem = await res.Content.ReadFromJsonAsync<ProblemDto>();
+        problem!.Detail.Should().StartWith(name).And.EndWith(text);
+    }
+
+    [Fact]
+    public async Task MeetingsCalendar_IncludesMeetingsOverlappingTheRangeStart()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+        var solicitation = await CreateSolicitationAsync(token, "Overlap");
+        // starts before the range but runs into it
+        await AddMeetingAsync(token, solicitation, new DateTime(2026, 10, 31, 23, 30, 0, DateTimeKind.Utc), durationMinutes: 90);
+        // ends exactly at the range start: not in range
+        await AddMeetingAsync(token, solicitation, new DateTime(2026, 10, 31, 22, 0, 0, DateTimeKind.Utc), durationMinutes: 120);
+
+        using var req = Authorized(HttpMethod.Get, "/api/meetings?from=2026-11-01T00:00:00Z&to=2026-11-08T00:00:00Z", token);
+        var meetings = await (await _client.SendAsync(req)).Content.ReadFromJsonAsync<List<CalendarMeetingDto>>();
+
+        var meeting = meetings.Should().ContainSingle().Subject;
+        meeting.ScheduledAtUtc.Should().Be(new DateTime(2026, 10, 31, 23, 30, 0, DateTimeKind.Utc));
+        meeting.EndsAtUtc.Should().Be(new DateTime(2026, 11, 1, 1, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public async Task AddMeeting_EndingBeforeItStarts_ReturnsBadRequest()
+    {
+        var (username, password) = await RegisterNewUserAsync();
+        var token = await LoginAsync(username, password);
+        var solicitation = await CreateSolicitationAsync(token, "Bad end");
+        var start = new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc);
+
+        var res = await PostMeetingAsync(token, solicitation, start, start.AddMinutes(-15));
+
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Theory]
     [InlineData("from=2026-11-10T00:00:00Z&to=2026-11-01T00:00:00Z")] // inverted
     [InlineData("from=2026-01-01T00:00:00Z&to=2026-12-31T00:00:00Z")] // too wide
@@ -382,11 +464,17 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         return (await res.Content.ReadFromJsonAsync<SolicitationDto>())!.Id;
     }
 
-    private async Task AddMeetingAsync(string token, Guid solicitationId, DateTime scheduledAtUtc)
+    private async Task AddMeetingAsync(string token, Guid solicitationId, DateTime scheduledAtUtc, int durationMinutes = 60)
+    {
+        var res = await PostMeetingAsync(token, solicitationId, scheduledAtUtc, scheduledAtUtc.AddMinutes(durationMinutes));
+        res.EnsureSuccessStatusCode();
+    }
+
+    private async Task<HttpResponseMessage> PostMeetingAsync(string token, Guid solicitationId, DateTime scheduledAtUtc, DateTime endsAtUtc)
     {
         using var req = Authorized(HttpMethod.Post, $"/api/solicitations/{solicitationId}/meetings", token,
-            new { scheduledAtUtc, type = 2, isOnline = false, onlineTool = (string?)null });
-        (await _client.SendAsync(req)).EnsureSuccessStatusCode();
+            new { scheduledAtUtc, endsAtUtc, type = 2, isOnline = false, onlineTool = (string?)null });
+        return await _client.SendAsync(req);
     }
 
     private async Task<(string Username, string Password)> RegisterNewUserAsync()
@@ -454,6 +542,11 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         return body!.Token;
     }
 
+    private sealed record ProblemDto(string? Title, string? Detail);
+
+    private static string? LocaleOf(string token)
+        => new JwtSecurityTokenHandler().ReadJwtToken(token).Claims.FirstOrDefault(c => c.Type == "locale")?.Value;
+
     private static HttpRequestMessage Authorized(HttpMethod method, string url, string token, object? body = null)
     {
         var req = new HttpRequestMessage(method, url);
@@ -472,7 +565,7 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     private sealed record LoginDto(string Token, DateTime ExpiresAt, string RefreshToken);
     private sealed record SolicitationDto(Guid Id, string JobName);
-    private sealed record CalendarMeetingDto(Guid Id, Guid SolicitationId, string JobName, DateTime ScheduledAtUtc);
+    private sealed record CalendarMeetingDto(Guid Id, Guid SolicitationId, string JobName, DateTime ScheduledAtUtc, DateTime EndsAtUtc);
     private sealed record LocationDto(string Country, string City, string ZipCode, string Street, string StreetNumber,
         bool Validated, string? PlaceId, double? Latitude, double? Longitude);
     private sealed record SolicitationWithLocationDto(Guid Id, LocationDto Location);

@@ -1,15 +1,17 @@
 <div class="flex flex-col gap-6">
     <header class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h1 class="text-foreground text-xl font-semibold tracking-tight">Solicitations</h1>
-            <p class="text-muted mt-1 text-sm">Where the companies you applied to are.</p>
+            <h1 class="text-foreground text-xl font-semibold tracking-tight">
+                {{ 'solicitations.list.title' | t }}
+            </h1>
+            <p class="text-muted mt-1 text-sm">{{ 'solicitations.map.intro' | t }}</p>
         </div>
         <app-solicitations-nav />
     </header>
 
     @if (solicitations.error()) {
         <div class="border-border bg-surface rounded-lg border px-6 py-12 text-center">
-            <p class="text-danger text-sm">Could not load your solicitations.</p>
+            <p class="text-danger text-sm">{{ 'solicitations.list.loadError' | t }}</p>
             <button
                 appButton
                 variant="secondary"
@@ -17,7 +19,7 @@
                 class="mt-3"
                 (click)="solicitations.reload()"
             >
-                Retry
+                {{ 'common.retry' | t }}
             </button>
         </div>
     } @else {
@@ -38,8 +40,7 @@
                         <p
                             class="bg-surface border-border text-muted max-w-xs rounded-md border px-3 py-2 text-center text-sm shadow"
                         >
-                            No verified addresses yet. Edit a solicitation and pick its address from
-                            the suggestions to put it on the map.
+                            {{ 'solicitations.map.empty' | t }}
                         </p>
                     </div>
                 }
@@ -69,7 +70,8 @@
                                             class="mt-1.5 size-2.5 shrink-0 cursor-pointer rounded-full"
                                             [class]="dotColor(s.id)"
                                             [attr.aria-label]="
-                                                'Show ' + s.website.name + ' on the map'
+                                                'solicitations.map.showOnMap'
+                                                    | t: { name: s.website.name }
                                             "
                                             (click)="onListClick(g.key)"
                                         ></button>
@@ -101,10 +103,7 @@
                     </ul>
                     @if (unverified() > 0) {
                         <p class="border-border text-muted border-t px-4 py-2.5 text-xs">
-                            {{ unverified() }}
-                            {{ unverified() === 1 ? 'solicitation has' : 'solicitations have' }}
-                            an unverified address and
-                            {{ unverified() === 1 ? 'is' : 'are' }} not on the map.
+                            {{ 'solicitations.map.unverified' | t: { count: unverified() } }}
                         </p>
                     }
                 }

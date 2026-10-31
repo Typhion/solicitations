@@ -22,6 +22,14 @@ public class AccountServiceTests
     }
 
     [Fact]
+    public async Task SetLanguageAsync_SavesForCurrentUser()
+    {
+        await _sut.SetLanguageAsync(new SetLanguageRequest(Languages.Nl), CancellationToken.None);
+
+        await _accounts.Received(1).SetLanguageAsync(_userId, Languages.Nl, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ChangePasswordAsync_WhenChanged_ReissuesSessionForCurrentUser()
     {
         _accounts.ChangePasswordAsync(_userId, "old", "new", Arg.Any<CancellationToken>())

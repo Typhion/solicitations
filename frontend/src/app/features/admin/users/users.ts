@@ -1,6 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Dialog } from '@angular/cdk/dialog';
@@ -18,6 +17,10 @@ import { AccountService } from '../../profile/account.service';
 import { CreatedInvite, Invite, InviteStatus, UserAccount } from '../admin.models';
 import { AdminService } from '../admin.service';
 import { DeleteUserDialog } from '../delete-user-dialog/delete-user-dialog';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { LocalDatePipe } from '../../../core/i18n/local-date.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslationKey } from '../../../core/i18n/translation.types';
 
 type Tab = 'members' | 'invites';
 
@@ -27,7 +30,6 @@ type Tab = 'members' | 'invites';
     imports: [
         ReactiveFormsModule,
         RouterLink,
-        DatePipe,
         CdkMenuTrigger,
         Badge,
         Button,
@@ -36,6 +38,8 @@ type Tab = 'members' | 'invites';
         Menu,
         MenuItem,
         MenuSeparator,
+        TranslatePipe,
+        LocalDatePipe,
     ],
     templateUrl: './users.html',
 })
@@ -45,6 +49,7 @@ export class Users {
     private readonly auth = inject(AuthService);
     private readonly confirm = inject(ConfirmService);
     private readonly dialog = inject(Dialog);
+    private readonly i18n = inject(I18nService);
 
     protected readonly Pending = InviteStatus.Pending;
 
@@ -115,9 +120,9 @@ export class Users {
     revoke(invite: Invite): void {
         this.confirmThen(
             {
-                title: 'Revoke invite?',
-                message: `The link sent to ${invite.email} will stop working.`,
-                confirmLabel: 'Revoke',
+                title: this.i18n.t('admin.revokeTitle'),
+                message: this.i18n.t('admin.revokeMessage', { email: invite.email ?? '' }),
+                confirmLabel: this.i18n.t('admin.revoke'),
                 danger: true,
             },
             invite.id,
@@ -135,12 +140,14 @@ export class Users {
         });
     }
 
-    inviteStatus(invite: Invite): { label: string; tone: BadgeTone } {
-        if (invite.status === InviteStatus.Accepted) return { label: 'Accepted', tone: 'success' };
-        if (invite.status === InviteStatus.Revoked) return { label: 'Revoked', tone: 'neutral' };
+    inviteStatus(invite: Invite): { label: TranslationKey; tone: BadgeTone } {
+        if (invite.status === InviteStatus.Accepted)
+            return { label: 'admin.inviteStatus.accepted', tone: 'success' };
+        if (invite.status === InviteStatus.Revoked)
+            return { label: 'admin.inviteStatus.revoked', tone: 'neutral' };
         return invite.isExpired
-            ? { label: 'Expired', tone: 'warning' }
-            : { label: 'Pending', tone: 'accent' };
+            ? { label: 'admin.inviteStatus.expired', tone: 'warning' }
+            : { label: 'admin.inviteStatus.pending', tone: 'accent' };
     }
 
     // ---------- Members ----------
@@ -154,15 +161,14 @@ export class Users {
         this.confirmThen(
             makeAdmin
                 ? {
-                      title: `Make ${user.username} an administrator?`,
-                      message:
-                          'Administrators can invite, lock and delete users. They need two-factor authentication to do so.',
-                      confirmLabel: 'Make admin',
+                      title: this.i18n.t('admin.makeAdminTitle', { name: user.username }),
+                      message: this.i18n.t('admin.makeAdminMessage'),
+                      confirmLabel: this.i18n.t('admin.makeAdmin'),
                   }
                 : {
-                      title: `Remove admin rights from ${user.username}?`,
-                      message: 'They keep their account and data as a normal user.',
-                      confirmLabel: 'Remove admin',
+                      title: this.i18n.t('admin.removeAdminTitle', { name: user.username }),
+                      message: this.i18n.t('admin.removeAdminMessage'),
+                      confirmLabel: this.i18n.t('admin.removeAdmin'),
                       danger: true,
                   },
             user.id,
@@ -176,15 +182,15 @@ export class Users {
         this.confirmThen(
             lock
                 ? {
-                      title: `Lock ${user.username}?`,
-                      message: "They're signed out and can't sign in until you unlock the account.",
-                      confirmLabel: 'Lock',
+                      title: this.i18n.t('admin.lockTitle', { name: user.username }),
+                      message: this.i18n.t('admin.lockMessage'),
+                      confirmLabel: this.i18n.t('admin.lock'),
                       danger: true,
                   }
                 : {
-                      title: `Unlock ${user.username}?`,
-                      message: 'They can sign in again.',
-                      confirmLabel: 'Unlock',
+                      title: this.i18n.t('admin.unlockTitle', { name: user.username }),
+                      message: this.i18n.t('admin.unlockMessage'),
+                      confirmLabel: this.i18n.t('admin.unlock'),
                   },
             user.id,
             () => this.admin.setLocked(user.id, lock),
@@ -252,7 +258,7 @@ export class Users {
     private describe(err: HttpErrorResponse): string {
         const fieldErrors = err.error?.errors as Record<string, string[]> | undefined;
         if (fieldErrors) return Object.values(fieldErrors).flat().join(' ');
-        if (err.status === 429) return 'Too many attempts. Wait a minute and try again.';
-        return err.error?.detail ?? 'Something went wrong. Please try again.';
+        if (err.status === 429) return this.i18n.t('errors.tooManyAttempts');
+        return err.error?.detail ?? this.i18n.t('errors.generic');
     }
 }

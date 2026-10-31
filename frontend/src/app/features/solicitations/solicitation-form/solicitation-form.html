@@ -17,16 +17,16 @@
             >
                 <path d="m15 18-6-6 6-6" />
             </svg>
-            {{ id() ? 'Back' : 'Solicitations' }}
+            {{ (id() ? 'common.back' : 'solicitations.list.title') | t }}
         </a>
         <h1 class="text-foreground mt-2 text-xl font-semibold tracking-tight">
-            {{ id() ? 'Edit solicitation' : 'New solicitation' }}
+            {{ (id() ? 'titles.editSolicitation' : 'titles.newSolicitation') | t }}
         </h1>
     </header>
 
     @if (loadError()) {
         <div class="border-border bg-surface rounded-lg border px-6 py-12 text-center">
-            <p class="text-danger text-sm">Could not load this solicitation.</p>
+            <p class="text-danger text-sm">{{ 'solicitations.loadOneError' | t }}</p>
         </div>
     } @else if (loading()) {
         <div class="border-border bg-surface flex flex-col gap-4 rounded-lg border p-6">
@@ -43,22 +43,27 @@
         >
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]">
                 <div>
-                    <h2 class="text-foreground text-sm font-semibold">Job</h2>
-                    <p class="text-muted mt-1 text-xs">The position you applied for.</p>
+                    <h2 class="text-foreground text-sm font-semibold">
+                        {{ 'solicitations.fields.job' | t }}
+                    </h2>
+                    <p class="text-muted mt-1 text-xs">{{ 'solicitations.form.jobHint' | t }}</p>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <app-field
                         class="sm:col-span-2"
-                        label="Job title"
+                        [label]="'solicitations.fields.jobTitle' | t"
                         [control]="form.controls.jobName"
                     >
                         <input appInput type="text" formControlName="jobName" />
                     </app-field>
                     @if (id()) {
-                        <app-field label="Status" [control]="form.controls.status">
+                        <app-field
+                            [label]="'solicitations.fields.status' | t"
+                            [control]="form.controls.status"
+                        >
                             <select appInput formControlName="status">
                                 @for (option of statusOptions; track option.value) {
-                                    <option [ngValue]="option.value">{{ option.label }}</option>
+                                    <option [ngValue]="option.value">{{ option.label | t }}</option>
                                 }
                             </select>
                         </app-field>
@@ -68,14 +73,24 @@
 
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]" formGroupName="website">
                 <div>
-                    <h2 class="text-foreground text-sm font-semibold">Company</h2>
-                    <p class="text-muted mt-1 text-xs">Who you applied to.</p>
+                    <h2 class="text-foreground text-sm font-semibold">
+                        {{ 'solicitations.fields.company' | t }}
+                    </h2>
+                    <p class="text-muted mt-1 text-xs">
+                        {{ 'solicitations.form.companyHint' | t }}
+                    </p>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <app-field label="Name" [control]="form.controls.website.controls.name">
+                    <app-field
+                        [label]="'solicitations.fields.name' | t"
+                        [control]="form.controls.website.controls.name"
+                    >
                         <input appInput type="text" formControlName="name" />
                     </app-field>
-                    <app-field label="Website" [control]="form.controls.website.controls.link">
+                    <app-field
+                        [label]="'solicitations.fields.website' | t"
+                        [control]="form.controls.website.controls.link"
+                    >
                         <input
                             appInput
                             type="text"
@@ -89,21 +104,31 @@
 
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]" formGroupName="contact">
                 <div>
-                    <h2 class="text-foreground text-sm font-semibold">Contact</h2>
-                    <p class="text-muted mt-1 text-xs">Recruiter or hiring manager.</p>
+                    <h2 class="text-foreground text-sm font-semibold">
+                        {{ 'solicitations.fields.contact' | t }}
+                    </h2>
+                    <p class="text-muted mt-1 text-xs">
+                        {{ 'solicitations.form.contactHint' | t }}
+                    </p>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <app-field
                         class="sm:col-span-2"
-                        label="Name"
+                        [label]="'solicitations.fields.name' | t"
                         [control]="form.controls.contact.controls.name"
                     >
                         <input appInput type="text" formControlName="name" autocomplete="off" />
                     </app-field>
-                    <app-field label="Email" [control]="form.controls.contact.controls.email">
+                    <app-field
+                        [label]="'solicitations.fields.email' | t"
+                        [control]="form.controls.contact.controls.email"
+                    >
                         <input appInput type="email" formControlName="email" autocomplete="off" />
                     </app-field>
-                    <app-field label="Phone" [control]="form.controls.contact.controls.phoneNumber">
+                    <app-field
+                        [label]="'solicitations.fields.phone' | t"
+                        [control]="form.controls.contact.controls.phoneNumber"
+                    >
                         <input
                             appInput
                             type="tel"
@@ -116,19 +141,28 @@
 
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]" formGroupName="location">
                 <div>
-                    <h2 class="text-foreground text-sm font-semibold">Location</h2>
-                    <p class="text-muted mt-1 text-xs">The company's address.</p>
+                    <h2 class="text-foreground text-sm font-semibold">
+                        {{ 'solicitations.fields.location' | t }}
+                    </h2>
+                    <p class="text-muted mt-1 text-xs">
+                        {{ 'solicitations.form.locationHint' | t }}
+                    </p>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-6">
                     <div class="flex flex-col gap-2 sm:col-span-6">
-                        <div appSegmented role="group" aria-label="Address type" class="self-start">
+                        <div
+                            appSegmented
+                            role="group"
+                            [attr.aria-label]="'solicitations.form.addressType' | t"
+                            class="self-start"
+                        >
                             <button
                                 appSegment
                                 type="button"
                                 [active]="form.controls.location.controls.validated.value"
                                 (click)="setValidated(true)"
                             >
-                                Verified (EU)
+                                {{ 'solicitations.form.verified' | t }}
                             </button>
                             <button
                                 appSegment
@@ -136,57 +170,55 @@
                                 [active]="!form.controls.location.controls.validated.value"
                                 (click)="setValidated(false)"
                             >
-                                Free text
+                                {{ 'solicitations.form.freeText' | t }}
                             </button>
                         </div>
                         @if (form.controls.location.controls.validated.value) {
                             <app-address-search (picked)="applyPlace($event)" />
                             @if (placeWarning(); as warning) {
-                                <p class="text-danger text-xs" role="alert">{{ warning }}</p>
+                                <p class="text-danger text-xs" role="alert">{{ warning | t }}</p>
                             } @else {
                                 <p class="text-muted text-xs">
-                                    Search for the company or its address and pick a suggestion to
-                                    fill in the fields. Verified addresses appear on the map.
+                                    {{ 'solicitations.form.verifiedHint' | t }}
                                 </p>
                             }
                         } @else {
                             <p class="text-muted text-xs">
-                                Saved as typed, without checking. Use this for addresses outside the
-                                EU. It won't appear on the map.
+                                {{ 'solicitations.form.freeTextHint' | t }}
                             </p>
                         }
                     </div>
                     <app-field
                         class="sm:col-span-4"
-                        label="Street"
+                        [label]="'solicitations.fields.street' | t"
                         [control]="form.controls.location.controls.street"
                     >
                         <input appInput type="text" formControlName="street" />
                     </app-field>
                     <app-field
                         class="sm:col-span-2"
-                        label="Number"
+                        [label]="'solicitations.fields.number' | t"
                         [control]="form.controls.location.controls.streetNumber"
                     >
                         <input appInput type="text" formControlName="streetNumber" />
                     </app-field>
                     <app-field
                         class="sm:col-span-2"
-                        label="Zip code"
+                        [label]="'solicitations.fields.zipCode' | t"
                         [control]="form.controls.location.controls.zipCode"
                     >
                         <input appInput type="text" formControlName="zipCode" />
                     </app-field>
                     <app-field
                         class="sm:col-span-4"
-                        label="City"
+                        [label]="'solicitations.fields.city' | t"
                         [control]="form.controls.location.controls.city"
                     >
                         <input appInput type="text" formControlName="city" />
                     </app-field>
                     <app-field
                         class="sm:col-span-6"
-                        label="Country"
+                        [label]="'solicitations.fields.country' | t"
                         [control]="form.controls.location.controls.country"
                     >
                         <input appInput type="text" formControlName="country" />
@@ -203,12 +235,14 @@
                     </ul>
                 }
                 <div class="flex justify-end gap-2">
-                    <a appButton variant="secondary" [routerLink]="backLink()">Cancel</a>
+                    <a appButton variant="secondary" [routerLink]="backLink()">{{
+                        'common.cancel' | t
+                    }}</a>
                     <button appButton type="submit" [disabled]="saving()">
                         @if (saving()) {
-                            Saving…
+                            {{ 'common.saving' | t }}
                         } @else {
-                            {{ id() ? 'Save changes' : 'Create solicitation' }}
+                            {{ (id() ? 'common.saveChanges' : 'solicitations.form.create') | t }}
                         }
                     </button>
                 </div>

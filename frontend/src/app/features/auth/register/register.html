@@ -2,24 +2,24 @@
     <div class="border-border bg-surface flex w-full max-w-sm flex-col gap-5 rounded-lg border p-6">
         <div>
             <h1 class="text-foreground text-lg font-semibold tracking-tight">
-                Create your account
+                {{ 'auth.registerTitle' | t }}
             </h1>
-            <p class="text-muted mt-1 text-sm">You've been invited to Solicitations.</p>
+            <p class="text-muted mt-1 text-sm">{{ 'auth.registerIntro' | t }}</p>
         </div>
 
         @if (!token() || invite.error() || (invite.hasValue() && !invite.value())) {
             <div class="flex flex-col gap-3">
                 <p class="text-danger text-sm" role="alert">
-                    This invite link is invalid, expired or already used.
+                    {{ 'auth.inviteInvalid' | t }}
                 </p>
-                <p class="text-muted text-sm">Ask an administrator to send you a new invite.</p>
-                <a appButton variant="secondary" routerLink="/login">Go to sign in</a>
+                <p class="text-muted text-sm">{{ 'auth.inviteAskNew' | t }}</p>
+                <a appButton variant="secondary" routerLink="/login">{{ 'auth.goToSignIn' | t }}</a>
             </div>
         } @else if (invite.hasValue()) {
             @let inv = invite.value()!;
             <form class="flex flex-col gap-4" [formGroup]="form" (ngSubmit)="submit()" novalidate>
                 <label class="flex flex-col gap-1.5">
-                    <span class="text-foreground text-sm font-medium">Email</span>
+                    <span class="text-foreground text-sm font-medium">{{ 'auth.email' | t }}</span>
                     <input
                         appInput
                         type="email"
@@ -30,7 +30,7 @@
                     />
                 </label>
 
-                <app-field label="Username" [control]="form.controls.username">
+                <app-field [label]="'auth.username' | t" [control]="form.controls.username">
                     <input
                         appInput
                         type="text"
@@ -39,7 +39,7 @@
                     />
                 </app-field>
 
-                <app-field label="Password" [control]="form.controls.password">
+                <app-field [label]="'auth.password' | t" [control]="form.controls.password">
                     <input
                         appInput
                         type="password"
@@ -48,7 +48,10 @@
                     />
                 </app-field>
 
-                <app-field label="Confirm password" [control]="form.controls.confirmPassword">
+                <app-field
+                    [label]="'auth.confirmPassword' | t"
+                    [control]="form.controls.confirmPassword"
+                >
                     <input
                         appInput
                         type="password"
@@ -56,18 +59,22 @@
                         autocomplete="new-password"
                     />
                 </app-field>
-                <p class="text-muted -mt-2 text-xs">{{ passwordHint }}</p>
+                <p class="text-muted -mt-2 text-xs">{{ passwordHint | t }}</p>
 
                 @if (error()) {
                     <p class="text-danger text-sm" role="alert">{{ error() }}</p>
                 }
 
                 <button appButton type="submit" class="w-full" [disabled]="saving()">
-                    {{ saving() ? 'Creating account…' : 'Create account' }}
+                    {{ (saving() ? 'auth.creatingAccount' : 'auth.createAccount') | t }}
                 </button>
             </form>
         } @else {
-            <div class="flex flex-col gap-3" aria-busy="true" aria-label="Checking invite">
+            <div
+                class="flex flex-col gap-3"
+                aria-busy="true"
+                [attr.aria-label]="'auth.checkingInvite' | t"
+            >
                 @for (i of [1, 2, 3]; track i) {
                     <div class="bg-surface-hover h-9 animate-pulse rounded-md"></div>
                 }

@@ -8,7 +8,6 @@ import {
     signal,
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CdkConnectedOverlay, ConnectedPosition } from '@angular/cdk/overlay';
 import { Button } from '../../../shared/ui/button/button';
@@ -25,6 +24,10 @@ import { addDays, fromDateParam, step, toDateParam, visibleRange } from '../cale
 import { MeetingCalendarService } from '../meeting-calendar.service';
 import { MonthView } from '../month-view/month-view';
 import { WeekView } from '../week-view/week-view';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { LocalDatePipe } from '../../../core/i18n/local-date.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslationKey } from '../../../core/i18n/translation.types';
 
 const VIEWS: CalendarView[] = ['month', 'week', 'agenda'];
 const SEARCH_DEBOUNCE_MS = 250;
@@ -49,13 +52,14 @@ const POPOVER_POSITIONS: ConnectedPosition[] = [
         Segmented,
         Segment,
         RouterLink,
-        DatePipe,
         CdkConnectedOverlay,
         StatusBadge,
         MonthView,
         WeekView,
         AgendaView,
         SolicitationsNav,
+        TranslatePipe,
+        LocalDatePipe,
     ],
     templateUrl: './meeting-calendar.html',
     host: { '(document:keydown)': 'onKeydown($event)' },
@@ -65,6 +69,7 @@ export class MeetingCalendar {
     private readonly solicitationService = inject(SolicitationService);
     private readonly router = inject(Router);
     private readonly route = inject(ActivatedRoute);
+    private readonly i18n = inject(I18nService);
 
     // Query params, bound via withComponentInputBinding().
     readonly view = input<string>();
@@ -73,6 +78,11 @@ export class MeetingCalendar {
     readonly q = input<string>();
 
     protected readonly views = VIEWS;
+    protected readonly viewLabels: Record<CalendarView, TranslationKey> = {
+        month: 'calendar.views.month',
+        week: 'calendar.views.week',
+        agenda: 'calendar.views.agenda',
+    };
     protected readonly typeLabels = meetingTypeLabels;
     protected readonly dotColor = dotColor;
     protected readonly positions = POPOVER_POSITIONS;
@@ -110,7 +120,7 @@ export class MeetingCalendar {
         const term = this.search().trim().toLowerCase();
         if (!term) return this.loaded();
         return this.loaded().filter((m) =>
-            [m.jobName, m.company, this.typeLabels[m.type], m.onlineTool ?? '', m.city]
+            [m.jobName, m.company, this.i18n.t(this.typeLabels[m.type]), m.onlineTool ?? '', m.city]
                 .join(' ')
                 .toLowerCase()
                 .includes(term),
@@ -120,11 +130,14 @@ export class MeetingCalendar {
     protected readonly title = computed(() => {
         const anchor = this.anchor();
         if (this.currentView() !== 'week') {
-            return anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+            return anchor.toLocaleDateString(this.i18n.locale(), {
+                month: 'long',
+                year: 'numeric',
+            });
         }
         // formatRange collapses shared parts: "Oct 26 – Nov 1, 2026" / "Nov 2 – 8, 2026".
         const { from } = this.range();
-        return new Intl.DateTimeFormat(undefined, {
+        return new Intl.DateTimeFormat(this.i18n.locale(), {
             day: 'numeric',
             month: 'short',
             year: 'numeric',

@@ -10,6 +10,9 @@ public interface IAccountManager
     Task<ProfileResponse> GetProfileAsync(Guid userId, CancellationToken ct);
     Task<AccountResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct);
 
+    /// <summary>Saves the preferred UI language (one of <see cref="Common.Languages.All"/>).</summary>
+    Task SetLanguageAsync(Guid userId, string language, CancellationToken ct);
+
     /// <summary>Generates a fresh authenticator key. Only allowed while 2FA is off.</summary>
     Task<AccountResult<AuthenticatorSetupResponse>> BeginAuthenticatorSetupAsync(Guid userId, CancellationToken ct);
 

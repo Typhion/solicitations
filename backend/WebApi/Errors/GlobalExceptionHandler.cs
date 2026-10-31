@@ -1,11 +1,13 @@
 using Application.Common.Exceptions;
 using Domain.Core;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Localization;
 
 namespace WebApi.Errors;
 
 public sealed class GlobalExceptionHandler(
     IProblemDetailsService problemDetails,
+    IStringLocalizer<Messages> localizer,
     ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
@@ -13,8 +15,10 @@ public sealed class GlobalExceptionHandler(
     {
         var (status, detail) = exception switch
         {
-            NotFoundException => (StatusCodes.Status404NotFound, exception.Message),
-            DomainException => (StatusCodes.Status409Conflict, exception.Message),
+            // Messages are shown to the user, so translate them to the request's language.
+            NotFoundException nf => (StatusCodes.Status404NotFound,
+                localizer["\"{0}\" ({1}) was not found.", localizer[nf.Name].Value, nf.Key].Value),
+            DomainException => (StatusCodes.Status409Conflict, localizer[exception.Message].Value),
             _ => (StatusCodes.Status500InternalServerError, (string?)null)
         };
         
@@ -31,7 +35,7 @@ public sealed class GlobalExceptionHandler(
             Exception = exception,
             ProblemDetails =
             {
-                Title = "An error occurred.",
+                Title = localizer["An error occurred."],
                 Status = status,
                 Detail = detail
             }

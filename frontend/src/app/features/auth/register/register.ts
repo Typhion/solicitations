@@ -5,6 +5,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { of } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { PASSWORD_HINT, matches, passwordStrength } from '../../../shared/forms/password-rules';
 import { Button } from '../../../shared/ui/button/button';
 import { Field } from '../../../shared/ui/field/field';
@@ -13,12 +15,13 @@ import { Input } from '../../../shared/ui/input/input';
 /** `/register?token=…` — create an account from an emailed invite link. */
 @Component({
     selector: 'app-register',
-    imports: [ReactiveFormsModule, RouterLink, Button, Field, Input],
+    imports: [ReactiveFormsModule, RouterLink, Button, Field, Input, TranslatePipe],
     templateUrl: './register.html',
 })
 export class Register {
     private readonly auth = inject(AuthService);
     private readonly router = inject(Router);
+    private readonly i18n = inject(I18nService);
 
     /** Query param, bound via withComponentInputBinding(). */
     readonly token = input<string>();
@@ -66,7 +69,7 @@ export class Register {
                 this.error.set(
                     fieldErrors
                         ? Object.values(fieldErrors).flat().join(' ')
-                        : (err.error?.detail ?? 'Something went wrong. Please try again.'),
+                        : (err.error?.detail ?? this.i18n.t('errors.generic')),
                 );
                 this.saving.set(false);
             },

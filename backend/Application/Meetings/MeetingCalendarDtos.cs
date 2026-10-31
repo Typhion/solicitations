@@ -14,6 +14,7 @@ public sealed record CalendarMeetingDto(
     string Company,
     SolicitationStatus Status,
     DateTime ScheduledAtUtc,
+    DateTime EndsAtUtc,
     MeetingType Type,
     bool IsOnline,
     string? OnlineTool,

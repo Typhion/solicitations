@@ -8,6 +8,8 @@ import { Field } from '../../../shared/ui/field/field';
 import { Input } from '../../../shared/ui/input/input';
 import { UserAccount } from '../admin.models';
 import { AdminService } from '../admin.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
 
 /**
  * Deliberately high-friction: the admin re-types the username and enters their own
@@ -15,7 +17,7 @@ import { AdminService } from '../admin.service';
  */
 @Component({
     selector: 'app-delete-user-dialog',
-    imports: [ReactiveFormsModule, Button, Field, Input],
+    imports: [ReactiveFormsModule, Button, Field, Input, TranslatePipe],
     host: {
         class: 'flex flex-col rounded-lg border border-border bg-surface shadow-overlay',
     },
@@ -23,13 +25,20 @@ import { AdminService } from '../admin.service';
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
             <div class="flex flex-col gap-4 p-5">
                 <div>
-                    <h2 class="text-danger text-base font-semibold">Delete {{ user.username }}?</h2>
+                    <h2 class="text-danger text-base font-semibold">
+                        {{ 'admin.deleteTitle' | t: { name: user.username } }}
+                    </h2>
                     <p class="text-muted mt-1.5 text-sm">
-                        This permanently deletes {{ consequence }}. This can't be undone.
+                        {{
+                            (user.solicitationCount === 0
+                                ? 'admin.deleteMessage'
+                                : 'admin.deleteMessageWithData'
+                            ) | t: { count: user.solicitationCount }
+                        }}
                     </p>
                 </div>
 
-                <app-field label="Type the username to confirm" [control]="form.controls.username">
+                <app-field [label]="'admin.typeUsername' | t" [control]="form.controls.username">
                     <input
                         appInput
                         type="text"
@@ -40,7 +49,7 @@ import { AdminService } from '../admin.service';
                     />
                 </app-field>
 
-                <app-field label="Your authentication code" [control]="form.controls.code">
+                <app-field [label]="'admin.yourCode' | t" [control]="form.controls.code">
                     <input
                         appInput
                         type="text"
@@ -59,7 +68,7 @@ import { AdminService } from '../admin.service';
             </div>
             <footer class="border-border flex justify-end gap-2 border-t px-5 py-3">
                 <button appButton type="button" variant="secondary" (click)="ref.close(false)">
-                    Cancel
+                    {{ 'common.cancel' | t }}
                 </button>
                 <button
                     appButton
@@ -67,7 +76,7 @@ import { AdminService } from '../admin.service';
                     variant="danger"
                     [disabled]="!usernameMatches() || busy()"
                 >
-                    {{ busy() ? 'Deleting…' : 'Delete user' }}
+                    {{ (busy() ? 'admin.deleting' : 'admin.deleteUser') | t }}
                 </button>
             </footer>
         </form>
@@ -75,13 +84,9 @@ import { AdminService } from '../admin.service';
 })
 export class DeleteUserDialog {
     private readonly admin = inject(AdminService);
+    private readonly i18n = inject(I18nService);
     protected readonly user = inject<UserAccount>(DIALOG_DATA);
     protected readonly ref = inject<DialogRef<boolean>>(DialogRef);
-
-    protected readonly consequence =
-        this.user.solicitationCount === 0
-            ? 'the account'
-            : `the account and its ${this.user.solicitationCount} ${this.user.solicitationCount === 1 ? 'solicitation' : 'solicitations'} (with meetings)`;
 
     readonly busy = signal(false);
     readonly error = signal<string | null>(null);
@@ -106,7 +111,7 @@ export class DeleteUserDialog {
         this.admin.deleteUser(this.user.id, this.form.getRawValue()).subscribe({
             next: () => this.ref.close(true),
             error: (err: HttpErrorResponse) => {
-                this.error.set(err.error?.detail ?? 'Something went wrong. Please try again.');
+                this.error.set(err.error?.detail ?? this.i18n.t('errors.generic'));
                 this.form.controls.code.reset();
                 this.busy.set(false);
             },

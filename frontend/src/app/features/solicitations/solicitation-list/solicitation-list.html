@@ -2,12 +2,14 @@
 <div class="flex flex-col gap-6 pb-20">
     <header class="flex flex-wrap items-end justify-between gap-4">
         <div>
-            <h1 class="text-foreground text-xl font-semibold tracking-tight">Solicitations</h1>
+            <h1 class="text-foreground text-xl font-semibold tracking-tight">
+                {{ 'solicitations.list.title' | t }}
+            </h1>
             <p class="text-muted mt-1 text-sm">
                 @if (range(); as r) {
-                    {{ r.total }} {{ r.total === 1 ? 'application' : 'applications' }}
+                    {{ 'solicitations.list.count' | t: { count: r.total } }}
                 } @else {
-                    Track your job applications.
+                    {{ 'solicitations.list.intro' | t }}
                 }
             </p>
         </div>
@@ -17,19 +19,21 @@
     <div class="border-border bg-surface overflow-hidden rounded-lg border">
         @if (solicitations.error()) {
             <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
-                <p class="text-danger text-sm">Could not load solicitations.</p>
+                <p class="text-danger text-sm">{{ 'solicitations.list.loadError' | t }}</p>
                 <button appButton variant="secondary" size="sm" (click)="solicitations.reload()">
-                    Retry
+                    {{ 'common.retry' | t }}
                 </button>
             </div>
         } @else if (solicitations.hasValue()) {
             @let r = solicitations.value();
             @if (r.items.length === 0) {
                 <div class="px-6 py-12 text-center">
-                    <p class="text-foreground text-sm font-medium">No solicitations yet.</p>
-                    <p class="text-muted mt-1 text-sm">Applications you add will show up here.</p>
+                    <p class="text-foreground text-sm font-medium">
+                        {{ 'solicitations.list.empty' | t }}
+                    </p>
+                    <p class="text-muted mt-1 text-sm">{{ 'solicitations.list.emptyHint' | t }}</p>
                     <a appButton variant="secondary" size="sm" routerLink="new" class="mt-4">
-                        New solicitation
+                        {{ 'solicitations.new' | t }}
                     </a>
                 </div>
             } @else {
@@ -37,13 +41,23 @@
                     <table class="w-full text-left text-sm">
                         <thead>
                             <tr class="text-muted text-xs font-medium tracking-wide uppercase">
-                                <th scope="col" class="px-4 py-2.5 font-medium">Job</th>
-                                <th scope="col" class="px-4 py-2.5 font-medium">Status</th>
-                                <th scope="col" class="px-4 py-2.5 font-medium">Company</th>
-                                <th scope="col" class="px-4 py-2.5 font-medium">Contact</th>
-                                <th scope="col" class="px-4 py-2.5 font-medium">Location</th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">
+                                    {{ 'solicitations.fields.job' | t }}
+                                </th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">
+                                    {{ 'solicitations.fields.status' | t }}
+                                </th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">
+                                    {{ 'solicitations.fields.company' | t }}
+                                </th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">
+                                    {{ 'solicitations.fields.contact' | t }}
+                                </th>
+                                <th scope="col" class="px-4 py-2.5 font-medium">
+                                    {{ 'solicitations.fields.location' | t }}
+                                </th>
                                 <th scope="col" class="w-0 py-2.5 pr-2">
-                                    <span class="sr-only">Open</span>
+                                    <span class="sr-only">{{ 'common.open' | t }}</span>
                                 </th>
                             </tr>
                         </thead>
@@ -105,7 +119,9 @@
                                             variant="ghost"
                                             size="icon"
                                             [routerLink]="s.id"
-                                            [attr.aria-label]="'Open ' + s.jobName"
+                                            [attr.aria-label]="
+                                                'common.openItem' | t: { name: s.jobName }
+                                            "
                                         >
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -134,7 +150,10 @@
                     >
                         @if (range(); as rg) {
                             <p class="text-muted text-sm">
-                                {{ rg.from }}–{{ rg.to }} of {{ rg.total }}
+                                {{
+                                    'common.range'
+                                        | t: { from: rg.from, to: rg.to, total: rg.total }
+                                }}
                             </p>
                         }
                         <div class="flex gap-2">
@@ -145,7 +164,7 @@
                                 [disabled]="r.page <= 1 || solicitations.isLoading()"
                                 (click)="previous()"
                             >
-                                Previous
+                                {{ 'common.previous' | t }}
                             </button>
                             <button
                                 appButton
@@ -154,14 +173,18 @@
                                 [disabled]="r.page >= r.totalPages || solicitations.isLoading()"
                                 (click)="next()"
                             >
-                                Next
+                                {{ 'common.next' | t }}
                             </button>
                         </div>
                     </div>
                 }
             }
         } @else {
-            <div class="flex flex-col" aria-busy="true" aria-label="Loading solicitations">
+            <div
+                class="flex flex-col"
+                aria-busy="true"
+                [attr.aria-label]="'solicitations.list.loading' | t"
+            >
                 @for (i of [1, 2, 3, 4, 5]; track i) {
                     <div class="border-border flex gap-4 border-t px-4 py-4 first:border-t-0">
                         <div class="bg-surface-hover h-4 w-1/4 animate-pulse rounded"></div>
@@ -178,8 +201,8 @@
 <!-- Floating primary action: icon-only on small screens, labelled from sm up. -->
 <a
     routerLink="new"
-    aria-label="New solicitation"
-    title="New solicitation"
+    [attr.aria-label]="'solicitations.new' | t"
+    [title]="'solicitations.new' | t"
     class="bg-accent text-accent-foreground hover:bg-accent-hover focus-visible:ring-ring/40 shadow-overlay fixed right-6 bottom-6 z-20 inline-flex h-12 items-center justify-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none sm:px-5"
 >
     <svg
@@ -195,5 +218,5 @@
     >
         <path d="M12 5v14M5 12h14" />
     </svg>
-    <span class="hidden sm:inline">New solicitation</span>
+    <span class="hidden sm:inline">{{ 'solicitations.new' | t }}</span>
 </a>

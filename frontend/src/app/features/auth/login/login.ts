@@ -4,12 +4,15 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { isTwoFactorChallenge } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { LanguagePreference } from '../../../core/i18n/language-preference';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { Button } from '../../../shared/ui/button/button';
 import { Input } from '../../../shared/ui/input/input';
 
 @Component({
     selector: 'app-login',
-    imports: [ReactiveFormsModule, Input, Button],
+    imports: [ReactiveFormsModule, Input, Button, TranslatePipe],
     templateUrl: './login.html',
 })
 export class Login {
@@ -17,6 +20,8 @@ export class Login {
     private readonly auth = inject(AuthService);
     private readonly router = inject(Router);
     private readonly route = inject(ActivatedRoute);
+    private readonly i18n = inject(I18nService);
+    private readonly languagePreference = inject(LanguagePreference);
 
     // UI state, held in signals.
     readonly error = signal<string | null>(null);
@@ -63,9 +68,7 @@ export class Login {
             error: (err: HttpErrorResponse) => {
                 // 401 = genuinely bad credentials; anything else is a network/server/CORS problem.
                 this.error.set(
-                    err.status === 401
-                        ? 'Invalid username or password.'
-                        : 'Something went wrong. Please try again.',
+                    this.i18n.t(err.status === 401 ? 'auth.invalidCredentials' : 'errors.generic'),
                 );
                 this.submitting.set(false);
             },
@@ -95,8 +98,8 @@ export class Login {
                     // The API explains 401s (wrong code, expired challenge, locked out) in `detail`.
                     this.error.set(
                         err.status === 401
-                            ? (err.error?.detail ?? 'Invalid verification code.')
-                            : 'Something went wrong. Please try again.',
+                            ? (err.error?.detail ?? this.i18n.t('auth.invalidCode'))
+                            : this.i18n.t('errors.generic'),
                     );
                     this.submitting.set(false);
                 },
@@ -119,6 +122,7 @@ export class Login {
     }
 
     private done(): void {
+        this.languagePreference.signedIn();
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/solicitations';
         this.router.navigateByUrl(returnUrl);
     }

@@ -1,14 +1,16 @@
 <div class="mx-auto flex max-w-3xl flex-col gap-6">
     <header>
-        <h1 class="text-foreground text-xl font-semibold tracking-tight">Profile</h1>
-        <p class="text-muted mt-1 text-sm">Your account, password and sign-in security.</p>
+        <h1 class="text-foreground text-xl font-semibold tracking-tight">
+            {{ 'titles.profile' | t }}
+        </h1>
+        <p class="text-muted mt-1 text-sm">{{ 'profile.intro' | t }}</p>
     </header>
 
     @if (profile.error()) {
         <div class="border-border bg-surface rounded-lg border px-6 py-12 text-center">
-            <p class="text-danger text-sm">Could not load your profile.</p>
+            <p class="text-danger text-sm">{{ 'profile.loadError' | t }}</p>
             <button appButton variant="secondary" size="sm" class="mt-3" (click)="profile.reload()">
-                Retry
+                {{ 'common.retry' | t }}
             </button>
         </div>
     } @else if (profile.hasValue()) {
@@ -20,24 +22,24 @@
             <!-- Account -->
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]">
                 <div>
-                    <h2 class="text-foreground text-sm font-semibold">Account</h2>
-                    <p class="text-muted mt-1 text-xs">Managed by an administrator.</p>
+                    <h2 class="text-foreground text-sm font-semibold">{{ 'nav.account' | t }}</h2>
+                    <p class="text-muted mt-1 text-xs">{{ 'profile.accountHint' | t }}</p>
                 </div>
                 <dl class="grid gap-4 text-sm sm:grid-cols-2">
                     <div>
-                        <dt class="text-muted text-xs font-medium">Username</dt>
+                        <dt class="text-muted text-xs font-medium">{{ 'auth.username' | t }}</dt>
                         <dd class="text-foreground mt-1">{{ p.username }}</dd>
                     </div>
                     <div>
-                        <dt class="text-muted text-xs font-medium">Email</dt>
+                        <dt class="text-muted text-xs font-medium">{{ 'auth.email' | t }}</dt>
                         <dd class="text-foreground mt-1">{{ p.email ?? '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-muted text-xs font-medium">Roles</dt>
+                        <dt class="text-muted text-xs font-medium">{{ 'profile.roles' | t }}</dt>
                         <dd class="mt-1 flex flex-wrap gap-1.5">
                             @for (role of p.roles; track role) {
                                 <span appBadge [tone]="role === 'Admin' ? 'accent' : 'neutral'">
-                                    {{ role }}
+                                    {{ roleLabel(role) | t }}
                                 </span>
                             }
                         </dd>
@@ -48,10 +50,8 @@
             <!-- Password -->
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]">
                 <div>
-                    <h2 class="text-foreground text-sm font-semibold">Password</h2>
-                    <p class="text-muted mt-1 text-xs">
-                        Changing it signs you out on all other devices.
-                    </p>
+                    <h2 class="text-foreground text-sm font-semibold">{{ 'auth.password' | t }}</h2>
+                    <p class="text-muted mt-1 text-xs">{{ 'profile.passwordHint' | t }}</p>
                 </div>
                 <form
                     class="flex flex-col gap-4"
@@ -60,7 +60,7 @@
                     novalidate
                 >
                     <app-field
-                        label="Current password"
+                        [label]="'profile.currentPassword' | t"
                         [control]="passwordForm.controls.currentPassword"
                     >
                         <input
@@ -72,7 +72,7 @@
                     </app-field>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <app-field
-                            label="New password"
+                            [label]="'profile.newPassword' | t"
                             [control]="passwordForm.controls.newPassword"
                         >
                             <input
@@ -83,7 +83,7 @@
                             />
                         </app-field>
                         <app-field
-                            label="Confirm new password"
+                            [label]="'profile.confirmNewPassword' | t"
                             [control]="passwordForm.controls.confirmPassword"
                         >
                             <input
@@ -94,20 +94,22 @@
                             />
                         </app-field>
                     </div>
-                    <p class="text-muted -mt-1 text-xs">{{ passwordHint }}</p>
+                    <p class="text-muted -mt-1 text-xs">{{ passwordHint | t }}</p>
 
                     @if (passwordError()) {
                         <p class="text-danger text-sm" role="alert">{{ passwordError() }}</p>
                     }
                     @if (passwordChanged()) {
                         <p class="text-success text-sm" role="status">
-                            Password changed. Other sessions were signed out.
+                            {{ 'profile.passwordChanged' | t }}
                         </p>
                     }
 
                     <div>
                         <button appButton type="submit" [disabled]="passwordSaving()">
-                            {{ passwordSaving() ? 'Saving…' : 'Change password' }}
+                            {{
+                                (passwordSaving() ? 'common.saving' : 'profile.changePassword') | t
+                            }}
                         </button>
                     </div>
                 </form>
@@ -116,18 +118,18 @@
             <!-- Two-factor authentication -->
             <section class="grid gap-4 p-6 sm:grid-cols-[12rem_1fr]">
                 <div>
-                    <h2 class="text-foreground text-sm font-semibold">Two-factor authentication</h2>
-                    <p class="text-muted mt-1 text-xs">
-                        A code from an authenticator app on your phone, on top of your password.
-                    </p>
+                    <h2 class="text-foreground text-sm font-semibold">
+                        {{ 'auth.twoFactorTitle' | t }}
+                    </h2>
+                    <p class="text-muted mt-1 text-xs">{{ 'profile.twoFactorHint' | t }}</p>
                 </div>
 
                 <div class="flex flex-col gap-4">
                     <div class="flex items-center gap-2">
                         @if (p.twoFactorEnabled) {
-                            <span appBadge tone="success">Enabled</span>
+                            <span appBadge tone="success">{{ 'profile.enabled' | t }}</span>
                         } @else {
-                            <span appBadge>Disabled</span>
+                            <span appBadge>{{ 'profile.disabled' | t }}</span>
                         }
                     </div>
 
@@ -138,11 +140,10 @@
                         >
                             <div>
                                 <h3 class="text-foreground text-sm font-semibold">
-                                    Save your recovery codes
+                                    {{ 'profile.saveCodesTitle' | t }}
                                 </h3>
                                 <p class="text-muted mt-1 text-xs">
-                                    If you lose your phone, each code lets you sign in once. They
-                                    won't be shown again.
+                                    {{ 'profile.saveCodesHint' | t }}
                                 </p>
                             </div>
                             <ul
@@ -159,7 +160,9 @@
                                     size="sm"
                                     (click)="copy('codes')"
                                 >
-                                    {{ copied() === 'codes' ? 'Copied' : 'Copy' }}
+                                    {{
+                                        (copied() === 'codes' ? 'common.copied' : 'common.copy') | t
+                                    }}
                                 </button>
                                 <button
                                     appButton
@@ -167,7 +170,7 @@
                                     size="sm"
                                     (click)="downloadCodes()"
                                 >
-                                    Download
+                                    {{ 'common.download' | t }}
                                 </button>
                                 <button
                                     appButton
@@ -175,32 +178,32 @@
                                     class="ml-auto"
                                     (click)="dismissCodes()"
                                 >
-                                    I've saved them
+                                    {{ 'profile.savedThem' | t }}
                                 </button>
                             </div>
                         </div>
                     } @else if (p.twoFactorEnabled) {
                         <p class="text-muted text-sm">
-                            Signing in asks for a code from your authenticator app.
+                            {{ 'profile.twoFactorOn' | t }}
                             <span [class.text-danger]="p.recoveryCodesLeft <= 2">
-                                {{ p.recoveryCodesLeft }}
-                                {{ p.recoveryCodesLeft === 1 ? 'recovery code' : 'recovery codes' }}
-                                left.
+                                {{ 'profile.codesLeft' | t: { count: p.recoveryCodesLeft } }}
                             </span>
                         </p>
                         <div class="flex flex-wrap gap-2">
                             <button appButton variant="secondary" (click)="regenerateCodes()">
-                                Generate new recovery codes
+                                {{ 'profile.regenerateCodes' | t }}
                             </button>
-                            <button appButton variant="danger" (click)="disable()">Disable</button>
+                            <button appButton variant="danger" (click)="disable()">
+                                {{ 'profile.disable' | t }}
+                            </button>
                         </div>
                     } @else if (setup(); as s) {
                         <!-- Setup: scan, then verify the first code -->
                         <ol class="flex flex-col gap-4 text-sm">
                             <li class="flex flex-col gap-3">
                                 <p class="text-foreground">
-                                    <span class="font-medium">1.</span> Scan this QR code with
-                                    Google Authenticator (or any authenticator app).
+                                    <span class="font-medium">1.</span>
+                                    {{ 'profile.setupScan' | t }}
                                 </p>
                                 <div class="flex flex-wrap items-start gap-4">
                                     @if (qrDataUrl(); as qr) {
@@ -208,14 +211,14 @@
                                             [src]="qr"
                                             width="192"
                                             height="192"
-                                            alt="QR code for your authenticator app"
+                                            [alt]="'profile.qrAlt' | t"
                                             class="border-border rounded-md border bg-white p-2"
                                         />
                                     }
                                     <div class="flex max-w-56 flex-col gap-1.5">
-                                        <span class="text-muted text-xs"
-                                            >Can't scan? Enter this key:</span
-                                        >
+                                        <span class="text-muted text-xs">{{
+                                            'profile.cantScan' | t
+                                        }}</span>
                                         <code
                                             class="bg-background border-border text-foreground rounded-md border px-2 py-1.5 font-mono text-xs break-all"
                                         >
@@ -228,7 +231,12 @@
                                             class="self-start"
                                             (click)="copy('key')"
                                         >
-                                            {{ copied() === 'key' ? 'Copied' : 'Copy key' }}
+                                            {{
+                                                (copied() === 'key'
+                                                    ? 'common.copied'
+                                                    : 'profile.copyKey'
+                                                ) | t
+                                            }}
                                         </button>
                                     </div>
                                 </div>
@@ -241,12 +249,12 @@
                                     novalidate
                                 >
                                     <p class="text-foreground">
-                                        <span class="font-medium">2.</span> Enter the 6-digit code
-                                        the app shows.
+                                        <span class="font-medium">2.</span>
+                                        {{ 'profile.setupEnterCode' | t }}
                                     </p>
                                     <app-field
                                         class="max-w-48"
-                                        label="Authentication code"
+                                        [label]="'auth.authenticationCode' | t"
                                         [control]="codeForm.controls.code"
                                     >
                                         <input
@@ -267,10 +275,15 @@
                                             variant="secondary"
                                             (click)="cancelSetup()"
                                         >
-                                            Cancel
+                                            {{ 'common.cancel' | t }}
                                         </button>
                                         <button appButton type="submit" [disabled]="setupBusy()">
-                                            {{ setupBusy() ? 'Verifying…' : 'Verify and enable' }}
+                                            {{
+                                                (setupBusy()
+                                                    ? 'auth.verifying'
+                                                    : 'profile.verifyEnable'
+                                                ) | t
+                                            }}
                                         </button>
                                     </div>
                                 </form>
@@ -278,12 +291,11 @@
                         </ol>
                     } @else {
                         <p class="text-muted text-sm">
-                            Protect your account if your password ever leaks. You'll need an
-                            authenticator app such as Google Authenticator.
+                            {{ 'profile.twoFactorOff' | t }}
                         </p>
                         <div>
                             <button appButton (click)="startSetup()" [disabled]="setupBusy()">
-                                Set up authenticator app
+                                {{ 'profile.setupStart' | t }}
                             </button>
                         </div>
                     }
@@ -295,7 +307,7 @@
             </section>
         </div>
     } @else {
-        <div class="flex flex-col gap-4" aria-busy="true" aria-label="Loading profile">
+        <div class="flex flex-col gap-4" aria-busy="true" [attr.aria-label]="'profile.loading' | t">
             <div class="bg-surface-hover h-32 animate-pulse rounded-lg"></div>
             <div class="bg-surface-hover h-48 animate-pulse rounded-lg"></div>
         </div>

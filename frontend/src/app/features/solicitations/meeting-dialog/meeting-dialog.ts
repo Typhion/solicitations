@@ -1,15 +1,46 @@
 import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+    AbstractControl,
+    FormBuilder,
+    ReactiveFormsModule,
+    ValidationErrors,
+    Validators,
+} from '@angular/forms';
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { Observable } from 'rxjs';
 import { Button } from '../../../shared/ui/button/button';
 import { Field } from '../../../shared/ui/field/field';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { TranslationKey } from '../../../core/i18n/translation.types';
 import { Input } from '../../../shared/ui/input/input';
 import { Meeting, MeetingType } from '../solicitation.models';
 import { SolicitationService } from '../solicitation.service';
-import { meetingTypeOptions, parseUtc, toLocalInputValue } from '../meeting-type';
+import {
+    CUSTOM_DURATION,
+    DEFAULT_DURATION,
+    MeetingDuration,
+    durationPreset,
+    meetingDurationOptions,
+    meetingTypeOptions,
+    parseUtc,
+    toLocalInputValue,
+    toLocalTimeValue,
+    withTime,
+} from '../meeting-type';
+
+const MINUTE = 60_000;
+
+/** Custom end time (same day as the start) must come after the start. */
+function endAfterStart(control: AbstractControl<string>): ValidationErrors | null {
+    const start = control.parent?.get('scheduledAt')?.value as string | undefined;
+    if (!start || !control.value) return null;
+    return withTime(new Date(start), control.value) > new Date(start)
+        ? null
+        : { endAfterStart: 'validation.endAfterStart' satisfies TranslationKey };
+}
 
 export interface MeetingDialogData {
     solicitationId: string;
@@ -23,7 +54,7 @@ export interface MeetingDialogData {
  */
 @Component({
     selector: 'app-meeting-dialog',
-    imports: [ReactiveFormsModule, Button, Field, Input],
+    imports: [ReactiveFormsModule, Button, Field, Input, TranslatePipe],
     host: {
         class: 'flex flex-col rounded-lg border border-border bg-surface shadow-overlay',
     },
@@ -32,15 +63,26 @@ export interface MeetingDialogData {
 export class MeetingDialog {
     private readonly fb = inject(FormBuilder);
     private readonly service = inject(SolicitationService);
+    private readonly i18n = inject(I18nService);
     protected readonly data = inject<MeetingDialogData>(DIALOG_DATA);
     protected readonly ref = inject<DialogRef<boolean>>(DialogRef);
 
     readonly typeOptions = meetingTypeOptions;
+    readonly durationOptions = meetingDurationOptions;
+    readonly custom = CUSTOM_DURATION;
     readonly saving = signal(false);
     readonly errors = signal<string[]>([]);
 
+    private readonly initial = this.initialTimes();
+
     readonly form = this.fb.nonNullable.group({
-        scheduledAt: [this.initialScheduledAt(), Validators.required],
+        scheduledAt: [toLocalInputValue(this.initial.start), Validators.required],
+        duration: [this.initial.duration],
+        // Only editable for a custom duration; for presets it just mirrors the computed end.
+        endTime: [
+            { value: this.initial.endTime, disabled: this.initial.duration !== CUSTOM_DURATION },
+            [Validators.required, endAfterStart],
+        ],
         type: [this.data.meeting?.type ?? MeetingType.RecruiterScreen],
         isOnline: [this.data.meeting?.isOnline ?? false],
         // Same rule as backend MeetingValidators: required (≤100) only when online.
@@ -57,6 +99,20 @@ export class MeetingDialog {
             if (online) tool.enable();
             else tool.disable();
         });
+
+        const { scheduledAt, duration, endTime } = this.form.controls;
+        duration.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
+            // the end time already reflects the previous preset, so Custom starts from there
+            if (value === CUSTOM_DURATION) endTime.enable();
+            else {
+                endTime.disable();
+                this.syncEndTime();
+            }
+        });
+        scheduledAt.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+            if (duration.value === CUSTOM_DURATION) endTime.updateValueAndValidity();
+            else this.syncEndTime();
+        });
     }
 
     submit(): void {
@@ -65,10 +121,14 @@ export class MeetingDialog {
             return;
         }
 
-        const { scheduledAt, type, isOnline, onlineTool } = this.form.getRawValue();
+        const { scheduledAt, duration, endTime, type, isOnline, onlineTool } =
+            this.form.getRawValue();
+        const start = new Date(scheduledAt);
+        const end = this.endOf(start, duration, endTime);
         const body = {
             // datetime-local is local time; the API stores UTC.
-            scheduledAtUtc: new Date(scheduledAt).toISOString(),
+            scheduledAtUtc: start.toISOString(),
+            endsAtUtc: end.toISOString(),
             type,
             isOnline,
             onlineTool: isOnline ? onlineTool : null,
@@ -87,20 +147,40 @@ export class MeetingDialog {
                 this.errors.set(
                     err.status === 400 && fieldErrors
                         ? Object.values(fieldErrors).flat()
-                        : [err.error?.detail ?? 'Something went wrong. Please try again.'],
+                        : [err.error?.detail ?? this.i18n.t('errors.generic')],
                 );
                 this.saving.set(false);
             },
         });
     }
 
-    private initialScheduledAt(): string {
+    /** Presets add minutes (so they may cross midnight); custom is a time on the start's day. */
+    private endOf(start: Date, duration: MeetingDuration, endTime: string): Date {
+        return duration === CUSTOM_DURATION
+            ? withTime(start, endTime)
+            : new Date(start.getTime() + duration * MINUTE);
+    }
+
+    private syncEndTime(): void {
+        const { scheduledAt, duration, endTime } = this.form.controls;
+        if (!scheduledAt.value || duration.value === CUSTOM_DURATION) return;
+        const end = this.endOf(new Date(scheduledAt.value), duration.value, endTime.value);
+        endTime.setValue(toLocalTimeValue(end));
+    }
+
+    private initialTimes(): { start: Date; duration: MeetingDuration; endTime: string } {
         const meeting = this.data.meeting;
-        if (meeting) return toLocalInputValue(parseUtc(meeting.scheduledAtUtc));
-        // Default for new meetings: tomorrow at 10:00.
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        d.setHours(10, 0, 0, 0);
-        return toLocalInputValue(d);
+        if (meeting) {
+            const start = parseUtc(meeting.scheduledAtUtc);
+            const end = parseUtc(meeting.endsAtUtc);
+            const minutes = Math.round((end.getTime() - start.getTime()) / MINUTE);
+            return { start, duration: durationPreset(minutes), endTime: toLocalTimeValue(end) };
+        }
+        // Default for new meetings: tomorrow 10:00–11:00.
+        const start = new Date();
+        start.setDate(start.getDate() + 1);
+        start.setHours(10, 0, 0, 0);
+        const end = new Date(start.getTime() + DEFAULT_DURATION * MINUTE);
+        return { start, duration: DEFAULT_DURATION, endTime: toLocalTimeValue(end) };
     }
 }

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch translations of user-facing API messages. Key = the English text (see Messages.cs). -->
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="An error occurred." xml:space="preserve">
+    <value>Er is een fout opgetreden.</value>
+  </data>
+  <data name='"{0}" ({1}) was not found.' xml:space="preserve">
+    <value>"{0}" ({1}) is niet gevonden.</value>
+  </data>
+  <data name="Meeting" xml:space="preserve">
+    <value>Gesprek</value>
+  </data>
+  <data name="Place" xml:space="preserve">
+    <value>Locatie</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>Gebruiker</value>
+  </data>
+  <data name="Invite" xml:space="preserve">
+    <value>Uitnodiging</value>
+  </data>
+  <data name="Solicitation" xml:space="preserve">
+    <value>Sollicitatie</value>
+  </data>
+  <data name="A meeting must end after it starts." xml:space="preserve">
+    <value>Een gesprek moet eindigen na het begin.</value>
+  </data>
+  <data name="Invite is not redeemable." xml:space="preserve">
+    <value>Deze uitnodiging kan niet meer gebruikt worden.</value>
+  </data>
+  <data name="Only pending invites can be revoked." xml:space="preserve">
+    <value>Alleen openstaande uitnodigingen kunnen ingetrokken worden.</value>
+  </data>
+  <data name="Only pending invites can be resent." xml:space="preserve">
+    <value>Alleen openstaande uitnodigingen kunnen opnieuw verstuurd worden.</value>
+  </data>
+  <data name="Address verification is unavailable right now. Try again later, or save the address as free text." xml:space="preserve">
+    <value>Adresverificatie is momenteel niet beschikbaar. Probeer het later opnieuw, of bewaar het adres als vrije tekst.</value>
+  </data>
+  <data name="This address could not be verified. Pick a suggestion from the search, or save it as free text." xml:space="preserve">
+    <value>Dit adres kon niet geverifieerd worden. Kies een suggestie uit de zoekresultaten, of bewaar het als vrije tekst.</value>
+  </data>
+  <data name="Only addresses in the EU can be verified. Save this one as free text instead." xml:space="preserve">
+    <value>Alleen adressen in de EU kunnen geverifieerd worden. Bewaar dit adres als vrije tekst.</value>
+  </data>
+  <data name="Meeting not found on this solicitation." xml:space="preserve">
+    <value>Dit gesprek hoort niet bij deze sollicitatie.</value>
+  </data>
+  <data name="You cannot remove your own administrator role." xml:space="preserve">
+    <value>Je kunt je eigen beheerdersrol niet verwijderen.</value>
+  </data>
+  <data name="Cannot remove the last administrator." xml:space="preserve">
+    <value>De laatste beheerder kan zijn rol niet verliezen.</value>
+  </data>
+  <data name="You cannot lock your own account." xml:space="preserve">
+    <value>Je kunt je eigen account niet blokkeren.</value>
+  </data>
+  <data name="Cannot lock the last administrator." xml:space="preserve">
+    <value>De laatste beheerder kan niet geblokkeerd worden.</value>
+  </data>
+  <data name="You cannot delete your own account." xml:space="preserve">
+    <value>Je kunt je eigen account niet verwijderen.</value>
+  </data>
+  <data name="The username doesn't match the user you're deleting." xml:space="preserve">
+    <value>De gebruikersnaam komt niet overeen met de gebruiker die je verwijdert.</value>
+  </data>
+  <data name="Cannot delete the last administrator." xml:space="preserve">
+    <value>De laatste beheerder kan niet verwijderd worden.</value>
+  </data>
+  <data name="Invalid authentication code." xml:space="preserve">
+    <value>Ongeldige verificatiecode.</value>
+  </data>
+  <data name="A user with this email address already exists." xml:space="preserve">
+    <value>Er bestaat al een gebruiker met dit e-mailadres.</value>
+  </data>
+  <data name="This email address already has a pending invite. Resend it instead." xml:space="preserve">
+    <value>Dit e-mailadres heeft al een openstaande uitnodiging. Verstuur die opnieuw.</value>
+  </data>
+  <data name="Invalid or expired invite." xml:space="preserve">
+    <value>Ongeldige of verlopen uitnodiging.</value>
+  </data>
+  <data name="Account locked. Try again later." xml:space="preserve">
+    <value>Account geblokkeerd. Probeer het later opnieuw.</value>
+  </data>
+  <data name="Two-factor authentication is already enabled." xml:space="preserve">
+    <value>Tweestapsverificatie is al ingeschakeld.</value>
+  </data>
+  <data name="Start the authenticator setup first." xml:space="preserve">
+    <value>Start eerst de configuratie van je authenticator-app.</value>
+  </data>
+  <data name="Invalid verification code. Check the time on your phone and try again." xml:space="preserve">
+    <value>Ongeldige verificatiecode. Controleer de tijd op je telefoon en probeer het opnieuw.</value>
+  </data>
+  <data name="Two-factor authentication is not enabled." xml:space="preserve">
+    <value>Tweestapsverificatie is niet ingeschakeld.</value>
+  </data>
+  <data name="Incorrect password." xml:space="preserve">
+    <value>Onjuist wachtwoord.</value>
+  </data>
+  <data name="Invalid username or password." xml:space="preserve">
+    <value>Ongeldige gebruikersnaam of wachtwoord.</value>
+  </data>
+  <data name="Sign-in expired. Please start again." xml:space="preserve">
+    <value>Aanmelding verlopen. Begin opnieuw.</value>
+  </data>
+  <data name="Invalid verification code." xml:space="preserve">
+    <value>Ongeldige verificatiecode.</value>
+  </data>
+  <data name="Invalid refresh token." xml:space="preserve">
+    <value>Ongeldige sessie. Meld je opnieuw aan.</value>
+  </data>
+  <data name="Enable two-factor authentication on your profile to manage users." xml:space="preserve">
+    <value>Schakel tweestapsverificatie in op je profiel om gebruikers te beheren.</value>
+  </data>
+  <data name="'To' must be after 'From'." xml:space="preserve">
+    <value>'To' moet na 'From' liggen.</value>
+  </data>
+  <data name="The range may span at most {0} days." xml:space="preserve">
+    <value>Het bereik mag maximaal {0} dagen beslaan.</value>
+  </data>
+  <data name="The new password must be different from the current one." xml:space="preserve">
+    <value>Het nieuwe wachtwoord moet verschillen van het huidige.</value>
+  </data>
+  <data name="End time must be after the start time." xml:space="preserve">
+    <value>Het einde moet na het begin liggen.</value>
+  </data>
+  <data name="Language must be one of: {0}." xml:space="preserve">
+    <value>Taal moet een van de volgende zijn: {0}.</value>
+  </data>
+  <data name="Role must be one of: {0}." xml:space="preserve">
+    <value>Rol moet een van de volgende zijn: {0}.</value>
+  </data>
+</root>

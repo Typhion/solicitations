@@ -1,16 +1,17 @@
 import { Component, computed, input, output } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { meetingTypeLabels } from '../../solicitations/meeting-type';
 import { CalendarMeeting, MeetingSelection } from '../calendar.models';
 import { eventColor } from '../calendar-colors';
 import { isSameDay, monthGrid, toDateParam } from '../calendar-date';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { LocalDatePipe } from '../../../core/i18n/local-date.pipe';
 
 const MAX_CHIPS = 3;
 
 /** 6×7 month grid; each day lists its meetings as chips, overflowing into "+N more". */
 @Component({
     selector: 'app-month-view',
-    imports: [DatePipe],
+    imports: [TranslatePipe, LocalDatePipe],
     templateUrl: './month-view.html',
 })
 export class MonthView {

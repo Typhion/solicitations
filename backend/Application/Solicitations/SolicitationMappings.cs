@@ -10,7 +10,7 @@ internal static class SolicitationMappings
             s.Location.IsVerified, s.Location.PlaceId, s.Location.Latitude, s.Location.Longitude),
         new WebsiteDto(s.Website.Name, s.Website.Link),
         new ContactDto(s.Contact.Name, s.Contact.PhoneNumber, s.Contact.Email),
-        s.Meetings.Select(m => new MeetingDto(m.Id, m.ScheduledAtUtc, m.Type, m.IsOnline, m.OnlineTool)).ToList());
+        s.Meetings.Select(m => new MeetingDto(m.Id, m.ScheduledAtUtc, m.EndsAtUtc, m.Type, m.IsOnline, m.OnlineTool)).ToList());
 
     public static Website ToDomain(this WebsiteDto d) => new(d.Name, d.Link);
     public static Contact ToDomain(this ContactDto d) => new(d.Name, d.PhoneNumber, d.Email);

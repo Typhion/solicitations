@@ -1,10 +1,13 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using Application;
+using Application.Common;
 using Asp.Versioning;
 using Infrastructure;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 using WebApi.Api;
@@ -62,6 +65,17 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddValidators();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddRequestLocalization(options =>
+{
+    // The SPA sends its chosen language as Accept-Language; this sets CurrentUICulture per request,
+    // which drives translated messages, FluentValidation's built-in messages and Places results.
+    // Only the UI culture changes; formatting/parsing stays invariant, as before.
+    options.DefaultRequestCulture = new RequestCulture(CultureInfo.InvariantCulture, CultureInfo.GetCultureInfo(Languages.Default));
+    options.SupportedCultures = [CultureInfo.InvariantCulture];
+    options.SupportedUICultures = [.. Languages.All.Select(CultureInfo.GetCultureInfo)];
+    options.RequestCultureProviders = [new AcceptLanguageHeaderRequestCultureProvider()];
+});
 builder.Services.AddSecurity();
 builder.Services.AddCorsPolicies(builder.Configuration);
 builder.Services.AddHealthChecks()
@@ -87,6 +101,9 @@ await app.Services.InitialiseDatabaseAsync();
 
 app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
+// Before the exception handler: the culture is async-local, so it must already be set when
+// the handler writes (translated) error details.
+app.UseRequestLocalization();
 app.UseExceptionHandler();
 app.UseCors("spa");
 app.UseAuthentication();

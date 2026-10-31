@@ -4,15 +4,63 @@
             class="text-foreground text-base font-semibold tracking-tight no-underline"
             routerLink="/solicitations"
         >
-            Solicitations
+            {{ 'app.name' | t }}
         </a>
 
         <div class="flex items-center gap-2">
             <button
                 type="button"
+                [cdkMenuTriggerFor]="languageMenu"
+                class="text-muted hover:bg-surface-hover hover:text-foreground aria-expanded:bg-surface-hover aria-expanded:text-foreground focus-visible:ring-accent inline-flex h-8 items-center gap-1.5 rounded-md px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                [attr.aria-label]="'language.choose' | t"
+                [title]="'language.choose' | t"
+            >
+                <!-- globe -->
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                >
+                    <circle cx="12" cy="12" r="10" />
+                    <path
+                        d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                    />
+                </svg>
+                <span class="text-xs font-semibold tracking-wide uppercase">{{
+                    i18n.language()
+                }}</span>
+            </button>
+
+            <ng-template #languageMenu>
+                <div appMenu class="min-w-40!">
+                    @for (lang of languages; track lang.code) {
+                        <button
+                            appMenuItemRadio
+                            [checked]="i18n.language() === lang.code"
+                            [attr.lang]="lang.code"
+                            (triggered)="chooseLanguage(lang.code)"
+                        >
+                            <span class="flex-1">{{ lang.label }}</span>
+                            <span class="text-muted text-xs font-medium uppercase">{{
+                                lang.code
+                            }}</span>
+                        </button>
+                    }
+                </div>
+            </ng-template>
+
+            <button
+                type="button"
                 class="text-muted hover:bg-surface-hover hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                 [attr.aria-label]="
-                    theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+                    (theme.theme() === 'dark' ? 'theme.toLight' : 'theme.toDark') | t
                 "
                 (click)="theme.toggle()"
             >
@@ -58,7 +106,7 @@
                     [cdkMenuTriggerFor]="accountMenu"
                     class="border-border text-foreground hover:bg-surface-hover focus-visible:ring-accent inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
-                    Account
+                    {{ 'nav.account' | t }}
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="14"
@@ -77,9 +125,9 @@
                 <ng-template #accountMenu>
                     <div appMenu>
                         <div class="px-2.5 py-1.5 text-xs">
-                            <div class="text-muted">Signed in as</div>
+                            <div class="text-muted">{{ 'nav.signedInAs' | t }}</div>
                             <div class="text-foreground truncate font-medium">
-                                {{ auth.username() ?? 'unknown' }}
+                                {{ auth.username() ?? ('nav.unknownUser' | t) }}
                             </div>
                         </div>
                         <div appMenuSeparator></div>
@@ -98,7 +146,7 @@
                                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                                 <circle cx="12" cy="7" r="4" />
                             </svg>
-                            Profile
+                            {{ 'nav.profile' | t }}
                         </button>
                         @if (auth.isAdmin()) {
                             <button appMenuItem (triggered)="openUsers()">
@@ -117,7 +165,7 @@
                                     <circle cx="9" cy="7" r="4" />
                                     <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
                                 </svg>
-                                Users
+                                {{ 'nav.users' | t }}
                             </button>
                         }
                         <button appMenuItem (triggered)="logout()">
@@ -135,7 +183,7 @@
                                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                                 <path d="m16 17 5-5-5-5M21 12H9" />
                             </svg>
-                            Log out
+                            {{ 'nav.logOut' | t }}
                         </button>
                     </div>
                 </ng-template>

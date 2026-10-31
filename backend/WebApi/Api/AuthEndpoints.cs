@@ -4,6 +4,7 @@ using Asp.Versioning;
 using Asp.Versioning.Builder;
 using Infrastructure.Security;
 using Microsoft.Extensions.Options;
+using WebApi.Errors;
 
 namespace WebApi.Api;
 
@@ -80,7 +81,7 @@ public static class AuthEndpoints
     {
         var result = await auth.LoginWithTwoFactorAsync(body.ChallengeToken, body.Code, body.UseRecoveryCode, ct);
         if (!result.Succeeded)
-            return Results.Problem(detail: result.Error, statusCode: StatusCodes.Status401Unauthorized);
+            return LocalizedProblem.For(result.Error, StatusCodes.Status401Unauthorized);
 
         SetRefreshCookie(response, result.RefreshToken!, env, jwtOptions.Value);
         return Results.Ok(new { token = result.Token, expiresAt = result.ExpiresAt });
@@ -95,7 +96,7 @@ public static class AuthEndpoints
 
         return result.Succeeded
             ? Results.Created($"/api/users/{body.Username}", null)
-            : Results.Problem(detail: string.Join("; ", result.Errors), statusCode: StatusCodes.Status400BadRequest);
+            : LocalizedProblem.For(result.Errors, StatusCodes.Status400BadRequest);
     }
 
     private static async Task<IResult> RefreshAsync(

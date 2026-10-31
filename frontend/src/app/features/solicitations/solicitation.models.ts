@@ -80,6 +80,7 @@ export interface Contact {
 export interface Meeting {
     id: string;
     scheduledAtUtc: string;
+    endsAtUtc: string;
     type: MeetingType;
     isOnline: boolean;
     onlineTool: string | null;
@@ -108,6 +109,7 @@ export interface UpdateSolicitationRequest extends CreateSolicitationRequest {
 
 export interface AddMeetingRequest {
     scheduledAtUtc: string;
+    endsAtUtc: string;
     type: MeetingType;
     isOnline: boolean;
     onlineTool: string | null;

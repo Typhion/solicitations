@@ -60,7 +60,7 @@ public sealed class SolicitationService(
     {
         var solicitation = await repository.GetByIdAsync(id, currentUser.Id, ct) ?? throw new NotFoundException(nameof(Solicitation), id);
 
-        solicitation.AddMeeting(req.ScheduledAtUtc, req.Type, req.IsOnline, req.OnlineTool);
+        solicitation.AddMeeting(req.ScheduledAtUtc, req.EndsAtUtc, req.Type, req.IsOnline, req.OnlineTool);
         await repository.SaveChangesAsync(ct);
         return solicitation.ToResponse();
     }
@@ -72,7 +72,7 @@ public sealed class SolicitationService(
         if (solicitation.Meetings.All(m => m.Id != meetingId))
             throw new NotFoundException("Meeting", meetingId);
 
-        solicitation.UpdateMeeting(meetingId, req.ScheduledAtUtc, req.Type, req.IsOnline, req.OnlineTool);
+        solicitation.UpdateMeeting(meetingId, req.ScheduledAtUtc, req.EndsAtUtc, req.Type, req.IsOnline, req.OnlineTool);
         await repository.SaveChangesAsync(ct);
     }
 

@@ -13,6 +13,8 @@ public sealed record EnableTwoFactorRequest(string Code);
 /// <summary>Re-confirms the password for sensitive actions (disable 2FA, regenerate recovery codes).</summary>
 public sealed record PasswordConfirmationRequest(string Password);
 
+public sealed record SetLanguageRequest(string Language);
+
 public sealed record RecoveryCodesResponse(IReadOnlyList<string> RecoveryCodes);
 
 public sealed record AccountResult(bool Succeeded, IReadOnlyList<string> Errors)
