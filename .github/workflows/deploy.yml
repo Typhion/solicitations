@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch: # manual re-deploy of the current main
+  workflow_dispatch: # manual run: no diff base, so it rebuilds and redeploys everything
 
 concurrency:
   group: deploy-production
@@ -21,19 +21,17 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
+  # Only the images whose source changed in this push (see the `changes` job in ci.yml).
   build-push:
     needs: ci
+    if: needs.ci.outputs.images != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
       matrix:
-        include:
-          - name: api
-            context: backend
-          - name: web
-            context: frontend
+        include: ${{ fromJSON(needs.ci.outputs.images) }}
     steps:
       - uses: actions/checkout@v5
 
@@ -55,8 +53,14 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,scope=${{ matrix.name }},mode=max
 
+  # Runs when an image was rebuilt or the compose file changed; docs-only pushes skip it.
+  # (`!cancelled()` lets it run when build-push was skipped for a compose-only change.)
   deploy:
-    needs: build-push
+    needs: [ci, build-push]
+    if: >-
+      !cancelled() && needs.ci.result == 'success'
+      && (needs.build-push.result == 'success' || needs.build-push.result == 'skipped')
+      && (needs.ci.outputs.images != '[]' || needs.ci.outputs.deploy == 'true')
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -83,6 +87,10 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          if ! ssh-keygen -F "$SSH_HOST" -f ~/.ssh/known_hosts >/dev/null; then
+            echo "::error::SSH_KNOWN_HOSTS has no entry for SSH_HOST. Regenerate it with: ssh-keyscan -t ed25519 <exact SSH_HOST value>"
+            exit 1
+          fi
           cat > ~/.ssh/config <<EOF
           Host server
             HostName $SSH_HOST
@@ -109,22 +117,28 @@ jobs:
       - name: Back up DB, roll out new images
         env:
           SHA: ${{ github.sha }}
+          BUILT_API: ${{ needs.ci.outputs.backend }}
+          BUILT_WEB: ${{ needs.ci.outputs.frontend }}
         # Values go in as positional args ($1..$4); the script body is sent verbatim over
-        # stdin (quoted heredoc = no local expansion).
+        # stdin (quoted heredoc = no local expansion). An empty image arg = not rebuilt this
+        # push, so its .env line (and the running container) is left alone.
         run: |
-          ssh server 'bash -s' "$APP_DIR" "$API_IMAGE:$SHA" "$WEB_IMAGE:$SHA" "$SHA" <<'EOSSH'
+          API_REF=""; WEB_REF=""
+          if [ "$BUILT_API" = true ]; then API_REF="$API_IMAGE:$SHA"; fi
+          if [ "$BUILT_WEB" = true ]; then WEB_REF="$WEB_IMAGE:$SHA"; fi
+          ssh server 'bash -s' "$APP_DIR" "$API_REF" "$WEB_REF" "$SHA" <<'EOSSH'
           set -euo pipefail
           APP_DIR="$1"; API_IMAGE="$2"; WEB_IMAGE="$3"; SHA="$4"
           export DOCKER_CONFIG="$APP_DIR/.docker" # GHCR credentials from the login step
           cd "$APP_DIR"
           test -f .env || { echo "::error::$APP_DIR/.env missing — bootstrap the server first (deploy/README.md)"; exit 1; }
 
-          # Migrations run automatically when the new API boots, so snapshot the DB first.
-          # Skipped on the very first deploy (no db container yet). Keeps the newest 10.
-          # Dumps hold user data: owner-only permissions.
+          # Migrations run automatically when a new API boots, so snapshot the DB first —
+          # only when the API is being replaced. Skipped on the very first deploy (no db
+          # container yet). Keeps the newest 10. Dumps hold user data: owner-only permissions.
           umask 077
           mkdir -p backups
-          if [ -n "$(docker compose ps -q --status running db)" ]; then
+          if [ -n "$API_IMAGE" ] && [ -n "$(docker compose ps -q --status running db)" ]; then
             docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
               | gzip > "backups/pre-$SHA.sql.gz"
             ls -1t backups/pre-*.sql.gz | tail -n +11 | xargs -r rm --
@@ -135,8 +149,8 @@ jobs:
           set_var() {
             if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi
           }
-          set_var API_IMAGE "$API_IMAGE"
-          set_var WEB_IMAGE "$WEB_IMAGE"
+          if [ -n "$API_IMAGE" ]; then set_var API_IMAGE "$API_IMAGE"; fi
+          if [ -n "$WEB_IMAGE" ]; then set_var WEB_IMAGE "$WEB_IMAGE"; fi
 
           docker compose pull
           docker compose up -d --remove-orphans

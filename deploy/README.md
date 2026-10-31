@@ -1,10 +1,21 @@
 # Deployment
 
+Builds run on **pull requests** and on **`main`**; plain pushes to other branches don't build.
+Both only build what changed:
+
+| Changed files | Backend build + tests | Frontend build + tests | Images built (and deployed on `main`) |
+|---|---|---|---|
+| `backend/**` | ✓ | | api |
+| `frontend/**` | | ✓ | web |
+| `deploy/docker-compose.yml` | | | none, but the compose file is redeployed |
+| `.github/workflows/**` | ✓ | ✓ | both |
+| anything else (docs, …) | | | none, no deploy |
+
 Push to `main` → GitHub Actions (`.github/workflows/deploy.yml`):
 
-1. **CI**: backend build + unit/integration tests, frontend build + tests, Docker image builds
-   (`ci.yml`, the same workflow that runs on every other branch and PR).
-2. **Build & push**: `ghcr.io/typhion/sollicitations-{api,web}:<sha>` (+ `:latest`).
+1. **CI** (`ci.yml`, the same workflow PRs run): build and test whatever changed.
+2. **Build & push**: the changed images as `ghcr.io/typhion/sollicitations-{api,web}:<sha>`
+   (+ `:latest`).
 3. **Deploy over SSH**: the steps are listed below.
 4. **Smoke check**: the job polls `https://api.admin.typhion.com/health/ready` and
    `https://admin.typhion.com`. If they aren't healthy within about 2 minutes, the job fails
@@ -12,9 +23,12 @@ Push to `main` → GitHub Actions (`.github/workflows/deploy.yml`):
 
 The deploy step:
 - copies `deploy/docker-compose.yml` to `/opt/sollicitations`
-- dumps the DB to `backups/`
-- rewrites only the `API_IMAGE`/`WEB_IMAGE` lines in `.env`
-- runs `docker compose pull && up -d`
+- dumps the DB to `backups/`, only when the API changes (migrations run on API start)
+- rewrites only the `.env` image lines of the images that were rebuilt
+- runs `docker compose pull && up -d`, which recreates only the containers that changed
+
+A manual run (**Actions → Deploy → Run workflow**) has nothing to diff against, so it
+rebuilds and redeploys everything. Use it if a failed deploy left the server behind `main`.
 
 The server is shared with **euro-millions**, whose stack in `/opt/euromillions` runs
 Traefik. Traefik owns the `traefik-web` network, ports 80/443, HTTP→HTTPS redirects and the
@@ -73,8 +87,9 @@ once they're stored in GitHub.
     | `SSH_PRIVATE_KEY` | contents of `sol_deploy` |
     | `SSH_KNOWN_HOSTS` | the `ssh-keyscan` output line(s) |
 
-- **Settings → Branches**: protect `main` and require the CI checks (`backend`, `frontend`,
-  `docker-build`) to pass before merging.
+- **Settings → Branches**: protect `main` and require the single **`CI result`** check to
+  pass before merging. Don't require the individual jobs: they're skipped when their part
+  didn't change, and a required check that never reports blocks the PR forever.
 - **Settings → Code security**: enable Dependabot alerts + security updates.
 
 The GHCR packages can stay private. The deploy job logs the server in with its own

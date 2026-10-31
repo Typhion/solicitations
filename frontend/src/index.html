@@ -2,10 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Frontend</title>
+  <title>Solicitations</title>
+  <!-- Private, invite-only app: keep the login page out of search engines. -->
+  <meta name="robots" content="noindex, nofollow">
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- SVG for modern browsers, .ico (16/32/48) as fallback, full-bleed PNG for iOS home screens. -->
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script>
     (function () {
       var stored = localStorage.getItem('theme');

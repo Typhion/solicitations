@@ -43,7 +43,7 @@ public static class AuthEndpoints
             .AllowAnonymous();
 
         group.MapPost("/refresh", RefreshAsync)
-            .RequireRateLimiting("login")
+            .RequireRateLimiting("refresh")
             .AllowAnonymous();
 
         group.MapPost("/logout", LogoutAsync)
@@ -106,9 +106,11 @@ public static class AuthEndpoints
         IOptions<JwtSettings> jwtOptions,
         CancellationToken ct)
     {
+        // No cookie = no session (the SPA probes this on every load). Not an error, so answer
+        // 204 instead of 401 to keep the browser console clean. A bad cookie still gets 401.
         var refreshToken = request.Cookies[RefreshCookieName];
         if (string.IsNullOrEmpty(refreshToken))
-            return Results.Unauthorized();
+            return Results.NoContent();
 
         var result = await auth.RefreshAsync(refreshToken, ct);
         if (!result.Succeeded)

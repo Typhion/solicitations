@@ -26,6 +26,13 @@ public class ApiFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Refresh_WithoutCookie_ReturnsNoContent()
+    {
+        var res = await _client.PostAsync("/api/auth/refresh", null);
+        res.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
     public async Task Admin_CanCreateAndFetchSolicitation()
     {
         var token = await AdminTokenAsync();

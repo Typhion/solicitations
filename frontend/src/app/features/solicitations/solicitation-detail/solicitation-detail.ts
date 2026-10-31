@@ -1,10 +1,11 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { CdkMenuTrigger } from '@angular/cdk/menu';
 import { Dialog } from '@angular/cdk/dialog';
 import { Router, RouterLink } from '@angular/router';
 import { filter, switchMap } from 'rxjs';
+import { PageTitle } from '../../../core/title/page-title';
 import { Button } from '../../../shared/ui/button/button';
 import { ConfirmService } from '../../../shared/ui/dialog/confirm-dialog';
 import { Menu, MenuItem, MenuSeparator } from '../../../shared/ui/menu/menu';
@@ -35,6 +36,7 @@ export class SolicitationDetail {
     private readonly confirm = inject(ConfirmService);
     private readonly dialog = inject(Dialog);
     private readonly router = inject(Router);
+    private readonly pageTitle = inject(PageTitle);
 
     /** Route param, bound via withComponentInputBinding(). */
     readonly id = input.required<string>();
@@ -47,6 +49,13 @@ export class SolicitationDetail {
         params: () => ({ id: this.id() }),
         stream: ({ params }) => this.service.get(params.id),
     });
+
+    constructor() {
+        // Replace the route's generic "Solicitation" tab title with the job name once loaded.
+        effect(() => {
+            if (this.solicitation.hasValue()) this.pageTitle.set(this.solicitation.value().jobName);
+        });
+    }
 
     // Chronological, with a parsed date and whether it's already happened.
     readonly meetings = computed(() => {
