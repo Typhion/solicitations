@@ -26,6 +26,8 @@ internal sealed class JwtTokenService(IOptions<JwtSettings> options) : IJwtToken
             new(SecurityStampClaim, user.SecurityStamp ?? string.Empty)
         };
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        // OIDC standard claim; lets the SPA apply the saved language on startup without another request.
+        if (!string.IsNullOrEmpty(user.Language)) claims.Add(new Claim("locale", user.Language));
 
         var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_settings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

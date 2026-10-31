@@ -177,17 +177,19 @@ public class SolicitationServiceTests
     {
         var solicitation = NewSolicitation();
         var meeting = solicitation.AddMeeting(new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc),
-            MeetingType.PhoneScreen, isOnline: false, onlineTool: null);
+            new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc), MeetingType.PhoneScreen, isOnline: false, onlineTool: null);
         _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
 
         var scheduledAt = new DateTime(2026, 11, 5, 14, 30, 0, DateTimeKind.Utc);
-        var request = new UpdateMeetingRequest(scheduledAt, MeetingType.TechnicalInterview, IsOnline: true, OnlineTool: "Teams");
+        var endsAt = scheduledAt.AddMinutes(90);
+        var request = new UpdateMeetingRequest(scheduledAt, endsAt, MeetingType.TechnicalInterview, IsOnline: true, OnlineTool: "Teams");
 
         await _sut.UpdateMeetingAsync(solicitation.Id, meeting.Id, request, CancellationToken.None);
 
         // same meeting instance (id preserved), updated in place
         solicitation.Meetings.Should().ContainSingle().Which.Should().BeSameAs(meeting);
         meeting.ScheduledAtUtc.Should().Be(scheduledAt);
+        meeting.EndsAtUtc.Should().Be(endsAt);
         meeting.Type.Should().Be(MeetingType.TechnicalInterview);
         meeting.IsOnline.Should().BeTrue();
         meeting.OnlineTool.Should().Be("Teams");
@@ -198,15 +200,48 @@ public class SolicitationServiceTests
     public async Task UpdateMeetingAsync_WhenSwitchedToInPerson_ClearsOnlineTool()
     {
         var solicitation = NewSolicitation();
-        var meeting = solicitation.AddMeeting(DateTime.UtcNow, MeetingType.PhoneScreen, isOnline: true, onlineTool: "Zoom");
+        var meeting = solicitation.AddMeeting(DateTime.UtcNow, DateTime.UtcNow.AddHours(1), MeetingType.PhoneScreen, isOnline: true, onlineTool: "Zoom");
         _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
 
-        var request = new UpdateMeetingRequest(DateTime.UtcNow, MeetingType.OnSite, IsOnline: false, OnlineTool: "Zoom");
+        var request = new UpdateMeetingRequest(DateTime.UtcNow, DateTime.UtcNow.AddHours(1), MeetingType.OnSite, IsOnline: false, OnlineTool: "Zoom");
 
         await _sut.UpdateMeetingAsync(solicitation.Id, meeting.Id, request, CancellationToken.None);
 
         meeting.IsOnline.Should().BeFalse();
         meeting.OnlineTool.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0)]   // ends when it starts
+    [InlineData(-30)] // ends before it starts
+    public async Task UpdateMeetingAsync_WhenEndNotAfterStart_ThrowsDomainException_AndDoesNotSave(int endOffsetMinutes)
+    {
+        var solicitation = NewSolicitation();
+        var start = new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc);
+        var meeting = solicitation.AddMeeting(start, start.AddHours(1), MeetingType.PhoneScreen, isOnline: false, onlineTool: null);
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
+
+        var request = new UpdateMeetingRequest(start, start.AddMinutes(endOffsetMinutes), MeetingType.PhoneScreen, IsOnline: false, OnlineTool: null);
+        var act = () => _sut.UpdateMeetingAsync(solicitation.Id, meeting.Id, request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainException>();
+        meeting.EndsAtUtc.Should().Be(start.AddHours(1));
+        await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AddMeetingAsync_WhenEndNotAfterStart_ThrowsDomainException_AndDoesNotSave()
+    {
+        var solicitation = NewSolicitation();
+        _repository.GetByIdAsync(solicitation.Id, _ownerId, Arg.Any<CancellationToken>()).Returns(solicitation);
+        var start = new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc);
+
+        var act = () => _sut.AddMeetingAsync(solicitation.Id,
+            new AddMeetingRequest(start, start, MeetingType.PhoneScreen, IsOnline: false, OnlineTool: null), CancellationToken.None);
+
+        await act.Should().ThrowAsync<DomainException>();
+        solicitation.Meetings.Should().BeEmpty();
+        await _repository.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -359,7 +394,7 @@ public class SolicitationServiceTests
     // ---------- Builders ----------
 
     private static UpdateMeetingRequest NewUpdateMeetingRequest() =>
-        new(DateTime.UtcNow, MeetingType.PhoneScreen, IsOnline: false, OnlineTool: null);
+        new(DateTime.UtcNow, DateTime.UtcNow.AddHours(1), MeetingType.PhoneScreen, IsOnline: false, OnlineTool: null);
 
 
     private static CreateSolicitationRequest NewCreateRequest(string jobName = "Developer") => new(

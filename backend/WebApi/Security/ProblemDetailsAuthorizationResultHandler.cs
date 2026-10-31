@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
+using WebApi.Errors;
 
 namespace WebApi.Security;
 
@@ -17,7 +18,7 @@ internal sealed class ProblemDetailsAuthorizationResultHandler : IAuthorizationM
         var reason = result.AuthorizationFailure?.FailureReasons.FirstOrDefault()?.Message;
         if (result.Forbidden && reason is not null)
         {
-            await Results.Problem(detail: reason, statusCode: StatusCodes.Status403Forbidden).ExecuteAsync(context);
+            await LocalizedProblem.For(reason, StatusCodes.Status403Forbidden).ExecuteAsync(context);
             return;
         }
 

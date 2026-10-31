@@ -71,6 +71,26 @@ describe('calendar-date', () => {
             ]);
         });
 
+        it("uses each event's own duration for overlap", () => {
+            // 9:00–9:30 and 9:30–11:00 touch but don't overlap; 10:00–10:30 overlaps the long one
+            const events = [
+                { start: 540, duration: 30 },
+                { start: 570, duration: 90 },
+                { start: 600, duration: 30 },
+            ];
+            expect(
+                layoutDay(
+                    events,
+                    (e) => e.start,
+                    (e) => e.duration,
+                ).map((e) => [e.item.start, e.column, e.columns]),
+            ).toEqual([
+                [540, 0, 1],
+                [570, 0, 2],
+                [600, 1, 2],
+            ]);
+        });
+
         it('keeps separate clusters independent', () => {
             expect(layout([540, 540, 540, 900])).toEqual([
                 [540, 0, 3],

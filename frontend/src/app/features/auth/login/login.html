@@ -6,8 +6,10 @@
             (ngSubmit)="submit()"
         >
             <div>
-                <h1 class="text-foreground text-lg font-semibold tracking-tight">Sign in</h1>
-                <p class="text-muted mt-1 text-sm">Use your account to continue.</p>
+                <h1 class="text-foreground text-lg font-semibold tracking-tight">
+                    {{ 'auth.signIn' | t }}
+                </h1>
+                <p class="text-muted mt-1 text-sm">{{ 'auth.signInIntro' | t }}</p>
             </div>
 
             @if (sessionEnded) {
@@ -15,7 +17,7 @@
                     class="border-warning/40 bg-warning/10 text-foreground rounded-md border px-3 py-2 text-sm"
                     role="status"
                 >
-                    Your session has ended. Please sign in again.
+                    {{ 'auth.sessionEnded' | t }}
                 </p>
             }
 
@@ -24,17 +26,17 @@
                     class="border-success/30 bg-success/10 text-foreground rounded-md border px-3 py-2 text-sm"
                     role="status"
                 >
-                    Account created. Sign in with your new password.
+                    {{ 'auth.justRegistered' | t }}
                 </p>
             }
 
             <label class="flex flex-col gap-1.5">
-                <span class="text-foreground text-sm font-medium">Username</span>
+                <span class="text-foreground text-sm font-medium">{{ 'auth.username' | t }}</span>
                 <input appInput type="text" formControlName="username" autocomplete="username" />
             </label>
 
             <label class="flex flex-col gap-1.5">
-                <span class="text-foreground text-sm font-medium">Password</span>
+                <span class="text-foreground text-sm font-medium">{{ 'auth.password' | t }}</span>
                 <input
                     appInput
                     type="password"
@@ -48,7 +50,7 @@
             }
 
             <button appButton type="submit" class="w-full" [disabled]="submitting()">
-                {{ submitting() ? 'Signing in…' : 'Sign in' }}
+                {{ (submitting() ? 'auth.signingIn' : 'auth.signIn') | t }}
             </button>
         </form>
     } @else {
@@ -59,21 +61,16 @@
         >
             <div>
                 <h1 class="text-foreground text-lg font-semibold tracking-tight">
-                    Two-factor authentication
+                    {{ 'auth.twoFactorTitle' | t }}
                 </h1>
                 <p class="text-muted mt-1 text-sm">
-                    @if (useRecoveryCode()) {
-                        Enter one of the recovery codes you saved when you set up two-factor
-                        authentication.
-                    } @else {
-                        Enter the 6-digit code from your authenticator app.
-                    }
+                    {{ (useRecoveryCode() ? 'auth.recoveryCodeIntro' : 'auth.codeIntro') | t }}
                 </p>
             </div>
 
             <label class="flex flex-col gap-1.5">
                 <span class="text-foreground text-sm font-medium">
-                    {{ useRecoveryCode() ? 'Recovery code' : 'Authentication code' }}
+                    {{ (useRecoveryCode() ? 'auth.recoveryCode' : 'auth.authenticationCode') | t }}
                 </span>
                 @if (useRecoveryCode()) {
                     <input
@@ -104,7 +101,7 @@
             }
 
             <button appButton type="submit" class="w-full" [disabled]="submitting()">
-                {{ submitting() ? 'Verifying…' : 'Verify' }}
+                {{ (submitting() ? 'auth.verifying' : 'auth.verify') | t }}
             </button>
 
             <div class="flex items-center justify-between text-sm">
@@ -113,14 +110,14 @@
                     class="text-muted hover:text-foreground cursor-pointer"
                     (click)="restart()"
                 >
-                    Back
+                    {{ 'common.back' | t }}
                 </button>
                 <button
                     type="button"
                     class="text-accent cursor-pointer hover:underline"
                     (click)="toggleRecoveryCode()"
                 >
-                    {{ useRecoveryCode() ? 'Use authenticator app' : 'Use a recovery code' }}
+                    {{ (useRecoveryCode() ? 'auth.useAuthenticator' : 'auth.useRecoveryCode') | t }}
                 </button>
             </div>
         </form>

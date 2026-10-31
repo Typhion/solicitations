@@ -1,7 +1,9 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl } from '@angular/forms';
 import { startWith, switchMap } from 'rxjs';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslationKey } from '../../../core/i18n/translation.types';
 
 /**
  * Label + control + validation message.
@@ -10,7 +12,7 @@ import { startWith, switchMap } from 'rxjs';
  * signal, so the message updates on blur and on `markAllAsTouched()`.
  *
  * Usage:
- *   <app-field label="Email" [control]="form.controls.email">
+ *   <app-field [label]="'auth.email' | t" [control]="form.controls.email">
  *     <input appInput type="email" formControlName="email" />
  *   </app-field>
  */
@@ -31,6 +33,8 @@ export class Field {
     readonly label = input.required<string>();
     readonly control = input.required<AbstractControl>();
 
+    private readonly i18n = inject(I18nService);
+
     private readonly changes = toSignal(
         toObservable(this.control).pipe(switchMap((c) => c.events.pipe(startWith(null)))),
     );
@@ -39,14 +43,15 @@ export class Field {
         this.changes();
         const c = this.control();
         if (!c.touched || !c.errors) return null;
-        if (c.errors['required']) return 'This field is required.';
-        if (c.errors['email']) return 'Enter a valid email address.';
+        const t = this.i18n.t.bind(this.i18n);
+        if (c.errors['required']) return t('validation.required');
+        if (c.errors['email']) return t('validation.email');
         if (c.errors['maxlength'])
-            return `Use at most ${c.errors['maxlength'].requiredLength} characters.`;
+            return t('validation.maxLength', { count: c.errors['maxlength'].requiredLength });
         if (c.errors['minlength'])
-            return `Use at least ${c.errors['minlength'].requiredLength} characters.`;
-        // Custom validators can supply their own message: { someKey: 'Message.' }
+            return t('validation.minLength', { count: c.errors['minlength'].requiredLength });
+        // Custom validators supply a translation key as their message: { someKey: 'validation.x' }
         const custom = Object.values(c.errors).find((v) => typeof v === 'string');
-        return custom ?? 'This value is invalid.';
+        return t((custom ?? 'validation.invalid') as TranslationKey);
     });
 }

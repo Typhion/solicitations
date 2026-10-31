@@ -8,15 +8,18 @@ import { SolicitationService } from '../solicitation.service';
 import { StatusBadge } from '../status-badge/status-badge';
 import { SolicitationsNav } from '../solicitations-nav/solicitations-nav';
 import { groupByAddress } from './map-groups';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
 
 /** `/solicitations/map` — every solicitation with a verified company address, on a map. */
 @Component({
     selector: 'app-solicitation-map',
-    imports: [RouterLink, Button, MapComponent, StatusBadge, SolicitationsNav],
+    imports: [RouterLink, Button, MapComponent, StatusBadge, SolicitationsNav, TranslatePipe],
     templateUrl: './solicitation-map.html',
 })
 export class SolicitationMap {
     private readonly service = inject(SolicitationService);
+    private readonly i18n = inject(I18nService);
     private readonly map = viewChild(MapComponent);
 
     protected readonly dotColor = dotColor;
@@ -42,7 +45,7 @@ export class SolicitationMap {
                 label:
                     count === 1
                         ? `${first.website.name} · ${first.jobName}`
-                        : `${first.website.name} · ${count} solicitations`,
+                        : `${first.website.name} · ${this.i18n.t('solicitations.map.pinCount', { count })}`,
             };
         }),
     );

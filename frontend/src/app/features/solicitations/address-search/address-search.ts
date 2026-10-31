@@ -13,6 +13,8 @@ import {
 import { Input } from '../../../shared/ui/input/input';
 import { PlacesService } from '../places.service';
 import { PlaceAddress, PlaceSuggestion } from '../solicitation.models';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { TranslationKey } from '../../../core/i18n/translation.types';
 
 export const MIN_QUERY_LENGTH = 3;
 export const DEBOUNCE_MS = 300;
@@ -44,7 +46,7 @@ let nextId = 0;
  */
 @Component({
     selector: 'app-address-search',
-    imports: [Input],
+    imports: [Input, TranslatePipe],
     host: { class: 'relative block' },
     template: `
         <input
@@ -52,7 +54,7 @@ let nextId = 0;
             type="search"
             role="combobox"
             autocomplete="off"
-            placeholder="Search a company or address, e.g. Acme Gent"
+            [placeholder]="'addressSearch.placeholder' | t"
             aria-autocomplete="list"
             [attr.aria-expanded]="open()"
             [attr.aria-controls]="listId"
@@ -85,12 +87,12 @@ let nextId = 0;
                 </ul>
                 <!-- Required by Google when Places results are shown without a Google map. -->
                 <p class="border-border text-muted border-t px-3 py-1.5 text-right text-[11px]">
-                    Powered by Google
+                    {{ 'addressSearch.poweredByGoogle' | t }}
                 </p>
             </div>
         }
         @if (error()) {
-            <p class="text-danger mt-1.5 text-xs">{{ error() }}</p>
+            <p class="text-danger mt-1.5 text-xs">{{ error()! | t }}</p>
         }
     `,
 })
@@ -105,7 +107,7 @@ export class AddressSearch {
     protected readonly open = signal(false);
     protected readonly active = signal(-1);
     protected readonly resolving = signal(false);
-    protected readonly error = signal<string | null>(null);
+    protected readonly error = signal<TranslationKey | null>(null);
 
     private readonly input$ = new Subject<string>();
 
@@ -154,9 +156,7 @@ export class AddressSearch {
             },
             error: () => {
                 this.resolving.set(false);
-                this.error.set(
-                    'That suggestion has no street address. Try another one, or enter it as free text.',
-                );
+                this.error.set('addressSearch.noStreet');
             },
         });
         this.sessionToken = crypto.randomUUID(); // the session ends with the details call

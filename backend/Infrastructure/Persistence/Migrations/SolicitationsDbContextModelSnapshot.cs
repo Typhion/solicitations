@@ -105,6 +105,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("EndsAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
 
@@ -178,6 +181,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");

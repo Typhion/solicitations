@@ -2,6 +2,7 @@ using Application.Account;
 using Asp.Versioning.Builder;
 using Infrastructure.Security;
 using Microsoft.Extensions.Options;
+using WebApi.Errors;
 
 namespace WebApi.Api;
 
@@ -25,6 +26,13 @@ public static class AccountEndpoints
         group.MapPost("/password", ChangePasswordAsync)
             .AddEndpointFilter<ValidationFilter<ChangePasswordRequest>>()
             .RequireRateLimiting("login");
+
+        group.MapPut("/language", async (SetLanguageRequest body, AccountService service, CancellationToken ct) =>
+            {
+                await service.SetLanguageAsync(body, ct);
+                return Results.NoContent();
+            })
+            .AddEndpointFilter<ValidationFilter<SetLanguageRequest>>();
 
         group.MapPost("/2fa/setup", async (AccountService service, CancellationToken ct) =>
             ToResult(await service.BeginAuthenticatorSetupAsync(ct), Results.Ok));
@@ -72,5 +80,5 @@ public static class AccountEndpoints
         => result.Succeeded ? onSuccess(result.Value!) : Problem(result.Errors);
 
     private static IResult Problem(IReadOnlyList<string> errors)
-        => Results.Problem(detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
+        => LocalizedProblem.For(errors, StatusCodes.Status400BadRequest);
 }

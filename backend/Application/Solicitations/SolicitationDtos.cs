@@ -9,11 +9,11 @@ public sealed record UpdateSolicitationRequest(string JobName, LocationDto Locat
 
 public sealed record SolicitationResponse(Guid Id, string JobName, SolicitationStatus Status, LocationDto Location, WebsiteDto Website, ContactDto Contact, IReadOnlyList<MeetingDto> Meetings);
 
-public sealed record AddMeetingRequest(DateTime ScheduledAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
+public sealed record AddMeetingRequest(DateTime ScheduledAtUtc, DateTime EndsAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
 
-public sealed record UpdateMeetingRequest(DateTime ScheduledAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
+public sealed record UpdateMeetingRequest(DateTime ScheduledAtUtc, DateTime EndsAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
 
-public sealed record MeetingDto(Guid Id, DateTime ScheduledAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
+public sealed record MeetingDto(Guid Id, DateTime ScheduledAtUtc, DateTime EndsAtUtc, MeetingType Type, bool IsOnline, string? OnlineTool);
 
 /// <summary>
 /// Request: <see cref="Validated"/> = "verify this address with Google" (EU only; off = free text, not on

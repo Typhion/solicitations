@@ -14,6 +14,9 @@ import {
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ThemeService } from '../../../core/theme/theme.service';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { TranslationKey } from '../../../core/i18n/translation.types';
 import { MapsConfig, PlacesService } from '../../../features/solicitations/places.service';
 
 /** One marker. `colorClass` is a Tailwind bg-* class; `count` > 1 is drawn inside the dot. */
@@ -38,7 +41,12 @@ let loading: Promise<MapsConfig> | null = null;
  * script can't load. `gm_authFailure` is Google's hook for a key it refuses (wrong referrer,
  * API not enabled, billing off).
  */
-function loadGoogleMaps(places: PlacesService, onAuthFailure: () => void): Promise<MapsConfig> {
+// The script loads once per page, so its labels use the language active at that moment.
+function loadGoogleMaps(
+    places: PlacesService,
+    language: string,
+    onAuthFailure: () => void,
+): Promise<MapsConfig> {
     const w = window as unknown as Record<string, unknown>;
     w['gm_authFailure'] = onAuthFailure;
     loading ??= firstValueFrom(places.mapsConfig())
@@ -58,6 +66,7 @@ function loadGoogleMaps(places: PlacesService, onAuthFailure: () => void): Promi
                     const params = new URLSearchParams({
                         key: config.browserApiKey,
                         v: 'weekly',
+                        language,
                         loading: 'async',
                         callback: CALLBACK,
                     });
@@ -81,11 +90,12 @@ function loadGoogleMaps(places: PlacesService, onAuthFailure: () => void): Promi
 @Component({
     selector: 'app-map',
     host: { class: 'relative block overflow-hidden' },
+    imports: [TranslatePipe],
     template: `
         <div #map class="bg-surface-hover absolute inset-0"></div>
         @if (failed(); as message) {
             <div class="bg-surface/80 absolute inset-0 flex items-center justify-center p-6">
-                <p class="text-danger text-center text-sm">{{ message }}</p>
+                <p class="text-danger text-center text-sm">{{ message | t }}</p>
             </div>
         }
     `,
@@ -96,6 +106,7 @@ function loadGoogleMaps(places: PlacesService, onAuthFailure: () => void): Promi
 export class MapComponent {
     private readonly theme = inject(ThemeService).theme;
     private readonly places = inject(PlacesService);
+    private readonly i18n = inject(I18nService);
 
     readonly pins = input.required<MapPin[]>();
     readonly selectedId = input<string | null>(null);
@@ -105,7 +116,7 @@ export class MapComponent {
     readonly pinClick = output<string>();
 
     private readonly container = viewChild.required<ElementRef<HTMLElement>>('map');
-    protected readonly failed = signal<string | null>(null);
+    protected readonly failed = signal<TranslationKey | null>(null);
 
     private config: MapsConfig | null = null;
     private map: google.maps.Map | null = null;
@@ -116,15 +127,13 @@ export class MapComponent {
     constructor() {
         afterNextRender(async () => {
             try {
-                this.config = await loadGoogleMaps(this.places, () =>
-                    this.failed.set(
-                        'Google rejected the Maps key. Check its referrer restrictions and that the Maps JavaScript API is enabled.',
-                    ),
+                this.config = await loadGoogleMaps(this.places, this.i18n.language(), () =>
+                    this.failed.set('map.keyRejected'),
                 );
                 await this.createMap();
             } catch (err) {
                 console.error('Map failed to load', err);
-                this.failed.set('The map could not be loaded.');
+                this.failed.set('map.loadFailed');
             }
         });
 

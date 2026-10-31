@@ -5,12 +5,13 @@ import { Button } from '../../../shared/ui/button/button';
 import { SolicitationsNav } from '../solicitations-nav/solicitations-nav';
 import { SolicitationService } from '../solicitation.service';
 import { StatusBadge } from '../status-badge/status-badge';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
 const PAGE_SIZE = 20;
 
 @Component({
     selector: 'app-solicitation-list',
-    imports: [Button, StatusBadge, RouterLink, SolicitationsNav],
+    imports: [Button, StatusBadge, RouterLink, SolicitationsNav, TranslatePipe],
     templateUrl: './solicitation-list.html',
 })
 export class SolicitationList {

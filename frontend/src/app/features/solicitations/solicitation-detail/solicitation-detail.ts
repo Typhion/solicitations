@@ -1,6 +1,5 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { DatePipe } from '@angular/common';
 import { CdkMenuTrigger } from '@angular/cdk/menu';
 import { Dialog } from '@angular/cdk/dialog';
 import { Router, RouterLink } from '@angular/router';
@@ -18,6 +17,9 @@ import { meetingTypeLabels, parseUtc } from '../meeting-type';
 import { Meeting } from '../solicitation.models';
 import { SolicitationService } from '../solicitation.service';
 import { StatusBadge } from '../status-badge/status-badge';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { LocalDatePipe } from '../../../core/i18n/local-date.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
 
 /** `/solicitations/:id` — solicitation summary plus its meetings (add/edit/delete). */
 @Component({
@@ -28,16 +30,18 @@ import { StatusBadge } from '../status-badge/status-badge';
         Button,
         StatusBadge,
         RouterLink,
-        DatePipe,
         CdkMenuTrigger,
         Menu,
         MenuItem,
         MenuSeparator,
+        TranslatePipe,
+        LocalDatePipe,
     ],
     templateUrl: './solicitation-detail.html',
 })
 export class SolicitationDetail {
     private readonly service = inject(SolicitationService);
+    private readonly i18n = inject(I18nService);
     private readonly confirm = inject(ConfirmService);
     private readonly dialog = inject(Dialog);
     private readonly router = inject(Router);
@@ -100,7 +104,8 @@ export class SolicitationDetail {
             .value()
             .meetings.map((m) => {
                 const at = parseUtc(m.scheduledAtUtc);
-                return { ...m, at, past: at.getTime() < now };
+                const end = parseUtc(m.endsAtUtc);
+                return { ...m, at, end, past: end.getTime() < now };
             })
             .sort((a, b) => a.at.getTime() - b.at.getTime());
     });
@@ -130,9 +135,12 @@ export class SolicitationDetail {
         this.actionError.set(null);
         this.confirm
             .confirm({
-                title: 'Delete meeting?',
-                message: `The ${meetingTypeLabels[meeting.type].toLowerCase()} will be permanently deleted.`,
-                confirmLabel: 'Delete',
+                title: this.i18n.t('meetings.deleteTitle'),
+                message: this.i18n.t('meetings.deleteMessage', {
+                    type: this.i18n.t(meetingTypeLabels[meeting.type]),
+                    typeLower: this.i18n.t(meetingTypeLabels[meeting.type]).toLowerCase(),
+                }),
+                confirmLabel: this.i18n.t('common.delete'),
                 danger: true,
             })
             .pipe(
@@ -149,7 +157,7 @@ export class SolicitationDetail {
                 },
                 error: () => {
                     this.busyMeetingId.set(null);
-                    this.actionError.set('Could not delete the meeting. Please try again.');
+                    this.actionError.set(this.i18n.t('meetings.deleteError'));
                 },
             });
     }
@@ -160,9 +168,9 @@ export class SolicitationDetail {
         this.actionError.set(null);
         this.confirm
             .confirm({
-                title: 'Delete solicitation?',
-                message: `"${s.jobName}" and its meetings will be permanently deleted.`,
-                confirmLabel: 'Delete',
+                title: this.i18n.t('solicitations.detail.deleteTitle'),
+                message: this.i18n.t('solicitations.detail.deleteMessage', { name: s.jobName }),
+                confirmLabel: this.i18n.t('common.delete'),
                 danger: true,
             })
             .pipe(
@@ -171,7 +179,10 @@ export class SolicitationDetail {
             )
             .subscribe({
                 next: () => this.router.navigate(['/solicitations']),
-                error: () => this.actionError.set(`Could not delete "${s.jobName}".`),
+                error: () =>
+                    this.actionError.set(
+                        this.i18n.t('solicitations.detail.deleteError', { name: s.jobName }),
+                    ),
             });
     }
 

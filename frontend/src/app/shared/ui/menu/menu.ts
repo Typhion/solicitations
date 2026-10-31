@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CdkMenu, CdkMenuItem } from '@angular/cdk/menu';
+import { CdkMenu, CdkMenuItem, CdkMenuItemRadio } from '@angular/cdk/menu';
 
 /**
  * Dropdown menu — design-system reference component.
@@ -62,6 +62,43 @@ export class Menu {}
     template: '<ng-content />',
 })
 export class MenuItem {}
+
+const itemClasses =
+    'flex w-full cursor-pointer items-center gap-2.5 rounded px-2.5 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-surface-hover focus:bg-surface-hover focus:outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50';
+
+/**
+ * One choice of several (role="menuitemradio" + aria-checked), with a check mark on the
+ * selected one. Use inside `appMenu`:
+ *   <button appMenuItemRadio [checked]="lang() === 'en'" (triggered)="choose('en')">English</button>
+ */
+@Component({
+    selector: 'button[appMenuItemRadio]',
+    hostDirectives: [
+        {
+            directive: CdkMenuItemRadio,
+            inputs: ['cdkMenuItemChecked: checked', 'cdkMenuItemDisabled: disabled'],
+            outputs: ['cdkMenuItemTriggered: triggered'],
+        },
+    ],
+    host: { type: 'button', class: itemClasses },
+    template: `
+        <svg
+            class="text-accent invisible size-4 shrink-0 in-aria-checked:visible"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M20 6 9 17l-5-5" />
+        </svg>
+        <ng-content />
+    `,
+})
+export class MenuItemRadio {}
 
 /** Thin divider between groups of items. */
 @Component({

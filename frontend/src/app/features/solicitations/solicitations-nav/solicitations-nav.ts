@@ -1,13 +1,14 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { Segment, Segmented } from '../../../shared/ui/segmented/segmented';
 
 /** List / Calendar / Map switch shown in the header of each solicitations overview page. */
 @Component({
     selector: 'app-solicitations-nav',
-    imports: [RouterLink, RouterLinkActive, Segmented, Segment],
+    imports: [RouterLink, RouterLinkActive, Segmented, Segment, TranslatePipe],
     template: `
-        <nav appSegmented aria-label="Solicitations view">
+        <nav appSegmented [attr.aria-label]="'solicitations.nav.label' | t">
             <a
                 appSegment
                 routerLink="/solicitations"
@@ -29,7 +30,7 @@ import { Segment, Segmented } from '../../../shared/ui/segmented/segmented';
                 >
                     <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
                 </svg>
-                List
+                {{ 'solicitations.nav.list' | t }}
             </a>
             <a
                 appSegment
@@ -52,7 +53,7 @@ import { Segment, Segmented } from '../../../shared/ui/segmented/segmented';
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
-                Calendar
+                {{ 'solicitations.nav.calendar' | t }}
             </a>
             <a
                 appSegment
@@ -75,7 +76,7 @@ import { Segment, Segmented } from '../../../shared/ui/segmented/segmented';
                     <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
                     <circle cx="12" cy="10" r="3" />
                 </svg>
-                Map
+                {{ 'solicitations.nav.map' | t }}
             </a>
         </nav>
     `,

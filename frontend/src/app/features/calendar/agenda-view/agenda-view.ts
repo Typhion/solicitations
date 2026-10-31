@@ -1,15 +1,16 @@
 import { Component, computed, input, output } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { meetingTypeLabels } from '../../solicitations/meeting-type';
 import { StatusBadge } from '../../solicitations/status-badge/status-badge';
 import { CalendarMeeting, MeetingSelection } from '../calendar.models';
 import { dotColor } from '../calendar-colors';
 import { isSameDay, toDateParam } from '../calendar-date';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { LocalDatePipe } from '../../../core/i18n/local-date.pipe';
 
 /** Chronological list of the month's meetings, grouped by day. */
 @Component({
     selector: 'app-agenda-view',
-    imports: [DatePipe, StatusBadge],
+    imports: [StatusBadge, TranslatePipe, LocalDatePipe],
     templateUrl: './agenda-view.html',
 })
 export class AgendaView {

@@ -23,6 +23,9 @@ public sealed class AccountService(IAccountManager accounts, IAuthenticationServ
         return AccountResult<LoginResult>.Success(await auth.ReissueAsync(currentUser.Id, ct));
     }
 
+    public Task SetLanguageAsync(SetLanguageRequest req, CancellationToken ct)
+        => accounts.SetLanguageAsync(currentUser.Id, req.Language, ct);
+
     public Task<AccountResult<AuthenticatorSetupResponse>> BeginAuthenticatorSetupAsync(CancellationToken ct)
         => accounts.BeginAuthenticatorSetupAsync(currentUser.Id, ct);
 

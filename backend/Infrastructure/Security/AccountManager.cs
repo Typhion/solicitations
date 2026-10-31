@@ -38,6 +38,17 @@ internal sealed class AccountManager(UserManager<AppUser> userManager) : IAccoun
         return AccountResult.Fail(result.Errors.Select(e => e.Description).ToList());
     }
 
+    // A preference, not a credential: no security stamp change, so existing tokens stay valid.
+    public async Task SetLanguageAsync(Guid userId, string language, CancellationToken ct)
+    {
+        var user = await GetAsync(userId);
+        if (user.Language == language) return;
+        user.Language = language;
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
+    }
+
     public async Task<AccountResult<AuthenticatorSetupResponse>> BeginAuthenticatorSetupAsync(Guid userId, CancellationToken ct)
     {
         var user = await GetAsync(userId);

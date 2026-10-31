@@ -26,7 +26,8 @@ public class MeetingCalendarServiceTests
     {
         var solicitationId = Guid.NewGuid();
         var meeting = new CalendarMeetingDto(Guid.NewGuid(), solicitationId, "Dev", "Acme", SolicitationStatus.Interviewing,
-            new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc), MeetingType.PhoneScreen, true, "Teams", "Ghent");
+            new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc),
+            MeetingType.PhoneScreen, true, "Teams", "Ghent");
         _repository.ListMeetingsAsync(_ownerId, Arg.Any<DateTime>(), Arg.Any<DateTime>(), solicitationId, Arg.Any<CancellationToken>())
             .Returns([meeting]);
 

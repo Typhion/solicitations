@@ -133,6 +133,59 @@ Authorization: Bearer {{auth_token}}
     });
 %}
 
+### Add a 90-minute meeting (expect 200 with the updated solicitation, incl. endsAtUtc)
+POST {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}/meetings
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "scheduledAtUtc": "2026-11-03T09:00:00Z",
+  "endsAtUtc": "2026-11-03T10:30:00Z",
+  "type": 3,
+  "isOnline": true,
+  "onlineTool": "Teams"
+}
+
+> {%
+    client.test("meeting created", function () {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+    });
+    client.test("meeting has its end time", function () {
+        const m = response.body.meetings.find(x => x.scheduledAtUtc.startsWith("2026-11-03T09:00"));
+        client.assert(m && m.endsAtUtc.startsWith("2026-11-03T10:30"), "endsAtUtc missing or wrong");
+    });
+%}
+
+### Add a meeting that ends before it starts (expect 400 from the validator)
+POST {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}/meetings
+Content-Type: application/json
+Authorization: Bearer {{auth_token}}
+
+{
+  "scheduledAtUtc": "2026-11-03T09:00:00Z",
+  "endsAtUtc": "2026-11-03T08:45:00Z",
+  "type": 3,
+  "isOnline": false,
+  "onlineTool": null
+}
+
+> {%
+    client.test("end before start returns 400", function () {
+        client.assert(response.status === 400, "Expected 400 but got " + response.status);
+    });
+%}
+
+### Meetings calendar for that week (expect 200, items carry endsAtUtc)
+GET {{WebApi_HostAddress}}/api/meetings?from=2026-11-02T00:00:00Z&to=2026-11-09T00:00:00Z&solicitationId={{solicitation_id}}
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.test("calendar returns the meeting with an end", function () {
+        client.assert(response.status === 200, "Expected 200 but got " + response.status);
+        client.assert(response.body.length === 1 && response.body[0].endsAtUtc, "Expected one meeting with endsAtUtc");
+    });
+%}
+
 ### Delete the solicitation (expect 204)
 DELETE {{WebApi_HostAddress}}/api/solicitations/{{solicitation_id}}
 Authorization: Bearer {{auth_token}}

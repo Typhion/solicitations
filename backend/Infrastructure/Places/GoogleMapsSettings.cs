@@ -21,9 +21,6 @@ public sealed class GoogleMapsSettings
 
     public string BaseUrl { get; init; } = "https://places.googleapis.com/";
 
-    /// <summary>Language of returned names (Belgian streets have nl/fr/de variants).</summary>
-    public string Language { get; init; } = "nl";
-
     /// <summary>Region (ccTLD) used to bias suggestions and format addresses.</summary>
     public string RegionCode { get; init; } = "be";
 
