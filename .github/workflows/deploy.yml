@@ -20,6 +20,9 @@ env:
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      actions: read # the `changes` job looks up the last successful deploy to diff against
 
   # Only the images whose source changed in this push (see the `changes` job in ci.yml).
   build-push:
@@ -123,6 +126,10 @@ jobs:
         # stdin (quoted heredoc = no local expansion). An empty image arg = not rebuilt this
         # push, so its .env line (and the running container) is left alone.
         #
+        # ssh doesn't pass argv through: it joins its arguments with spaces into ONE command
+        # line that the remote shell re-splits, so an empty argument would vanish and shift the
+        # rest. `printf %q` quotes each value for that remote shell (an empty one becomes '').
+        #
         # The body is wrapped in main(), so bash reads the WHOLE script before running any of
         # it. `bash -s` otherwise reads it line by line from stdin, and any command that also
         # reads stdin (e.g. `docker compose exec`) swallows the rest — the script then ends
@@ -131,9 +138,10 @@ jobs:
           API_REF=""; WEB_REF=""
           if [ "$BUILT_API" = true ]; then API_REF="$API_IMAGE:$SHA"; fi
           if [ "$BUILT_WEB" = true ]; then WEB_REF="$WEB_IMAGE:$SHA"; fi
-          ssh server 'bash -s' "$APP_DIR" "$API_REF" "$WEB_REF" "$SHA" <<'EOSSH'
+          ssh server "bash -s $(printf '%q ' "$APP_DIR" "$API_REF" "$WEB_REF" "$SHA")" <<'EOSSH'
           main() {
             set -euo pipefail
+            [ "$#" -eq 4 ] || { echo "::error::expected 4 arguments, got $#"; exit 1; }
             APP_DIR="$1"; API_IMAGE="$2"; WEB_IMAGE="$3"; SHA="$4"
             export DOCKER_CONFIG="$APP_DIR/.docker" # GHCR credentials from the login step
             cd "$APP_DIR"
