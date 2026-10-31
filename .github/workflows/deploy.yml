@@ -1,0 +1,164 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # manual re-deploy of the current main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never kill a deploy halfway through
+
+permissions:
+  contents: read
+
+env:
+  API_IMAGE: ghcr.io/typhion/sollicitations-api
+  WEB_IMAGE: ghcr.io/typhion/sollicitations-web
+  APP_DIR: /opt/sollicitations
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build-push:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: api
+            context: backend
+          - name: web
+            context: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ghcr.io/typhion/sollicitations-${{ matrix.name }}:${{ github.sha }}
+            ghcr.io/typhion/sollicitations-${{ matrix.name }}:latest
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max
+
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://admin.typhion.com
+    permissions:
+      contents: read # checkout, so we can ship the compose file
+      packages: read # the server pulls with this job's ephemeral GITHUB_TOKEN
+    steps:
+      - uses: actions/checkout@v5
+
+      # No third-party SSH action: the runner's built-in OpenSSH, so secrets never
+      # reach (and no binary is downloaded from) an external action.
+      # The host key is pinned (SSH_KNOWN_HOSTS) — runners are ephemeral, so
+      # `accept-new` would trust whatever answers on every single run.
+      - name: Configure SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host server
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Ship compose file
+        # Repo is the source of truth for the stack definition; .env stays server-owned.
+        run: scp deploy/docker-compose.yml "server:$APP_DIR/docker-compose.yml"
+
+      - name: Log server in to GHCR
+        # Token goes over stdin, never argv, so it can't show up in the server's `ps`.
+        # It's this job's ephemeral GITHUB_TOKEN (read-only packages, expires with the job).
+        # Own DOCKER_CONFIG: euro-millions deploys as the same user, and a shared
+        # ~/.docker/config.json would let one repo's login/logout clobber the other's.
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_ACTOR: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | ssh server "DOCKER_CONFIG=$APP_DIR/.docker docker login ghcr.io -u '$GHCR_ACTOR' --password-stdin"
+
+      - name: Back up DB, roll out new images
+        env:
+          SHA: ${{ github.sha }}
+        # Values go in as positional args ($1..$4); the script body is sent verbatim over
+        # stdin (quoted heredoc = no local expansion).
+        run: |
+          ssh server 'bash -s' "$APP_DIR" "$API_IMAGE:$SHA" "$WEB_IMAGE:$SHA" "$SHA" <<'EOSSH'
+          set -euo pipefail
+          APP_DIR="$1"; API_IMAGE="$2"; WEB_IMAGE="$3"; SHA="$4"
+          export DOCKER_CONFIG="$APP_DIR/.docker" # GHCR credentials from the login step
+          cd "$APP_DIR"
+          test -f .env || { echo "::error::$APP_DIR/.env missing — bootstrap the server first (deploy/README.md)"; exit 1; }
+
+          # Migrations run automatically when the new API boots, so snapshot the DB first.
+          # Skipped on the very first deploy (no db container yet). Keeps the newest 10.
+          # Dumps hold user data: owner-only permissions.
+          umask 077
+          mkdir -p backups
+          if [ -n "$(docker compose ps -q --status running db)" ]; then
+            docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+              | gzip > "backups/pre-$SHA.sql.gz"
+            ls -1t backups/pre-*.sql.gz | tail -n +11 | xargs -r rm --
+            echo "Backup written: backups/pre-$SHA.sql.gz"
+          fi
+
+          # Update ONLY the image lines; every other value (secrets) is preserved.
+          set_var() {
+            if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi
+          }
+          set_var API_IMAGE "$API_IMAGE"
+          set_var WEB_IMAGE "$WEB_IMAGE"
+
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker image prune -f
+          EOSSH
+
+      - name: Smoke check
+        run: |
+          set -u
+          for i in $(seq 1 24); do
+            if curl -fsS -o /dev/null https://api.admin.typhion.com/health/ready \
+              && curl -fsS -o /dev/null https://admin.typhion.com; then
+              echo "Healthy after ~$((i * 5))s"; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Not healthy after 2 minutes"; exit 1
+
+      - name: Show API logs on failure
+        if: failure()
+        run: ssh server "cd $APP_DIR && docker compose ps && docker compose logs api --tail 100"
+
+      - name: Log server out of GHCR
+        if: always()
+        run: ssh server "DOCKER_CONFIG=$APP_DIR/.docker docker logout ghcr.io" || true
