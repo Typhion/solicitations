@@ -32,7 +32,7 @@ jobs:
       deploy: ${{ steps.diff.outputs.deploy }}
       images: ${{ steps.diff.outputs.images }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history, so the base commit is available to diff against
 
@@ -89,13 +89,13 @@ jobs:
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest # has Docker preinstalled, needed by the Testcontainers integration tests
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj') }}
@@ -118,9 +118,9 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22 # keep in sync with frontend/Dockerfile
           cache: npm
@@ -145,11 +145,11 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.images) }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           push: false
